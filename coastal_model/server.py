@@ -1,5 +1,5 @@
 from matplotlib.figure import Figure
-from coastal_model import CoastalModel, mesa
+from coastal_model.model import CoastalModel, mesa
 import math
 import numpy as np
 
@@ -43,5 +43,5 @@ grid = mesa.visualization.CanvasGrid(agent_portrayal, x, y, scale*x, scale*y)
 chart = mesa.visualization.ChartModule([{"Label": "Sea Level", "Color": "Black"}], data_collector_name="datacollector")
 
 server = mesa.visualization.ModularServer(model_cls = CoastalModel, visualization_elements=[grid, chart], name= "Coastal Model", model_params=model_params)
+
 server.port = 8521  # the default
-server.launch()
