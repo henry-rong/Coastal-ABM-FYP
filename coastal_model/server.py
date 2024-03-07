@@ -3,7 +3,7 @@ from coastal_model.model import CoastalModel, mesa
 import math
 import numpy as np
 
-coast = np.genfromtxt(f'maps/levels.txt') # 0 is water, 1-3 is land
+coast = np.genfromtxt(f'maps/fictional/levels.txt') # 0 is water, 1-3 is land
 x = np.shape(coast)[0]
 y = np.shape(coast)[1]
 

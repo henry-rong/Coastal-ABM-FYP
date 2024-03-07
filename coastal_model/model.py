@@ -84,7 +84,7 @@ class CoastalModel(mesa.Model):
         self.running = True
 
         # Read landscape file
-        coast = np.genfromtxt(f'maps/levels.txt') # 0 is water, 1-3 is land
+        coast = np.genfromtxt(f'maps/fictional/levels.txt') # 0 is water, 1-3 is land
         land = np.where(coast > 0)
 
         # Initiate mesa grid class
