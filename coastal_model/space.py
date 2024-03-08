@@ -7,7 +7,7 @@ from mesa_geo.geospace import GeoSpace
 from mesa_geo.raster_layers import Cell, RasterLayer
 
 
-class CoastalCell(Cell):
+class CoastalCell(Cell): # the population rasterfile
     population: float | None
 
     def __init__(
@@ -22,7 +22,7 @@ class CoastalCell(Cell):
         pass
 
 
-class Coast(GeoAgent):
+class Sea(GeoAgent):
     pass
 
 
@@ -30,7 +30,7 @@ class CoastalArea(GeoSpace):
     def __init__(self, crs):
         super().__init__(crs=crs)
 
-    def load_data(self, population_gzip_file, coast_zip_file, world_zip_file):
+    def load_data(self, population_gzip_file, sea_zip_file, world_zip_file):
         world_size = gpd.GeoDataFrame.from_file(world_zip_file)
         raster_layer = RasterLayer.from_file(
             f"/vsigzip/{population_gzip_file}",
@@ -40,8 +40,8 @@ class CoastalArea(GeoSpace):
         raster_layer.crs = world_size.crs
         raster_layer.total_bounds = world_size.total_bounds
         self.add_layer(raster_layer)
-        self.coast = gpd.GeoDataFrame.from_file(coast_zip_file).geometry[0]
-        self.add_agents(GeoAgent(uuid.uuid4().int, None, self.coast, self.crs))
+        self.sea = gpd.GeoDataFrame.from_file(sea_zip_file).geometry[0]
+        self.add_agents(GeoAgent(uuid.uuid4().int, None, self.sea, self.crs))
 
     @property
     def population_layer(self):
