@@ -156,7 +156,7 @@ class Population(mesa.Model):
     def step(self): #from 2010 to 2080
 
         self.step_count +=1
-        stochastic_storm = np.random.choice(a = [0, 2 + self.step_count],p = [(1 - (1+self.step_count)/100),(1+self.step_count)/100])
+        stochastic_storm = np.random.choice(a = [0, 2 + self.step_count],p = [(1 - (1+self.step_count/100)/100),(1+self.step_count/100)/100])
         self.sea_level += self.step_count/1000 + stochastic_storm # m/year # includes a flood variation
         self.datacollector.collect(self)
         self.schedule.step()
