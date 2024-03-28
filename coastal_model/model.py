@@ -4,8 +4,10 @@ import uuid
 import mesa
 import mesa_geo as mg
 import numpy as np
+import geopandas as gpd
 from shapely.geometry import Point
 from agent.household import Household
+from agent.building import Building
 from .space import CoastalArea
 
 # define functions
@@ -28,12 +30,13 @@ class Population(mesa.Model):
         super().__init__()
         self.step_count = 0
         self.space = CoastalArea(crs="epsg:4326")
-        self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file, building_file)
+        self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
+        self._load_building_from_file(building_file, crs=self.space.crs)
         pixel_size_x, pixel_size_y = self.space.population_layer.resolution
         Household.MOBILITY_RANGE_X = pixel_size_x / 2
         Household.MOBILITY_RANGE_Y = pixel_size_y / 2
         self.schedule = mesa.time.RandomActivation(self)
-        self._create_agents()
+        self._create_households()
         self.migration_count = 0
 
         # sea level rise
@@ -44,11 +47,11 @@ class Population(mesa.Model):
             agent_reporters={"Adaptation":"flood_preparedness"},
         )
 
-    def _create_agents(self):
+    def _create_households(self):
         household_size = 3.5 # no. of people per household. taken from Tierolf paper
         num_agents = 0
         for cell in self.space.population_layer:
-            popu_round = math.ceil(cell.population/household_size)
+            popu_round = math.ceil(cell.population/household_size) # divide person population by household size
             if popu_round > 0: # all non-zero raster cells
                 for _ in range(popu_round):
                     num_agents += 1
@@ -61,9 +64,24 @@ class Population(mesa.Model):
                             geometry=point,
                             img_coord=cell.indices,
                         )
-                        household.set_random_world_coord()
+                        household.set_random_world_coord() # NOTE: modify to set random Building
                         self.space.add_agents(household)
                         self.schedule.add(household)
+
+    def _load_building_from_file(self, buildings_file: str, crs: str):
+        
+        # buildings_df = gpd.GeoDataFrame.from_file(buildings_file)
+        buildings_df = gpd.read_file(buildings_file)
+        # buildings_df.drop("Id", axis=1, inplace=True)
+        # buildings_df.index.name = "unique_id"
+        # buildings_df = buildings_df.set_crs(self.space.crs, allow_override=True).to_crs(crs)
+        # buildings_df = buildings_df.to_crs('+proj=cea').centroid.to_crs(buildings_df.crs)
+        buildings_df = buildings_df.set_crs(self.space.crs,allow_override=True).to_crs(crs)
+        buildings_df["centroid"] = list(zip(buildings_df.centroid.x, buildings_df.centroid.y)) # polygons are small
+        building_creator = mg.AgentCreator(Building, model=self)
+        buildings = building_creator.from_GeoDataFrame(buildings_df)
+        self.space.add_buildings(buildings)
+
 
     def step(self): #from 2010 to 2080
 
