@@ -12,6 +12,7 @@ class Building(mg.GeoAgent):
     geometry: Polygon
     crs: pyproj.CRS
     centroid: mesa.space.FloatCoordinate
+    occupied: int
     name: str
 
     def __init__(self, unique_id, model, geometry, crs) -> None:

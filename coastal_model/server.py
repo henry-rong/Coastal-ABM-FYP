@@ -44,7 +44,8 @@ def agent_portrayal(agent):
             }
 
 
-        elif isinstance(agent.geometry, Point):
+        # elif isinstance(agent.geometry, Point):
+        elif isinstance(agent, Household):
             portrayal = {"stroke": False,"color": "Green", "fillOpacity": 0.3, "radius": 2}
             portrayal["color"] = "Red" if agent.flood_preparedness < 0.5 else "Green"
             portrayal["radius"] = 1 if agent.flood_preparedness < 0.5 else 2
