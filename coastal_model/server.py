@@ -5,7 +5,6 @@ from shapely.geometry import Point, Polygon
 from .model import Population
 from .space import CoastalCell, CoastalArea
 from agent.building import Building
-from agent.household import Household
 
 
 class NumAgentsElement(mesa.visualization.TextElement):
@@ -34,8 +33,9 @@ def agent_portrayal(agent):
     if isinstance(agent, mg.GeoAgent):
         
         if isinstance(agent, Building):
-            return {
-                "fillColor":"Blue",
+
+            portrayal = {
+                "fillColor":"Black",
                 "stroke": True,
                 "color": "Black",
                 "opacity": 0.5,
@@ -43,13 +43,16 @@ def agent_portrayal(agent):
                 "fillOpacity": 1,
             }
 
+            portrayal["fillColor"] = "White" if agent.occupied == 0 else ("#ff5226" if agent.flood_preparedness < 0.5 else "#20f720")
+
+            return portrayal
 
         # elif isinstance(agent.geometry, Point):
-        elif isinstance(agent, Household):
-            portrayal = {"stroke": False,"color": "Green", "fillOpacity": 0.3, "radius": 2}
-            portrayal["color"] = "Red" if agent.flood_preparedness < 0.5 else "Green"
-            portrayal["radius"] = 1 if agent.flood_preparedness < 0.5 else 2
-            return portrayal
+        # elif isinstance(agent, Household):
+        #     portrayal = {"stroke": False,"color": "Green", "fillOpacity": 0.3, "radius": 2}
+        #     portrayal["color"] = "Red" if agent.flood_preparedness < 0.5 else "Green"
+        #     portrayal["radius"] = 1 if agent.flood_preparedness < 0.5 else 2
+        #     return portrayal
         
         elif isinstance(agent.geometry, Polygon):
             return {
@@ -62,7 +65,7 @@ def agent_portrayal(agent):
             }
 
 
-    # elif isinstance(agent, CoastalCell):
+    # elif isinstance(agent, CoastalCell): # visualises the raster layer
     #     return (agent.population, agent.population, agent.population, 1)
     
 
@@ -72,5 +75,4 @@ geospace_element = mg.visualization.MapModule(agent_portrayal,map_width=700)
 num_agents_element = NumAgentsElement()
 chart1 = mesa.visualization.ChartModule([{"Label": "Sea Level", "Color": "Black"}], data_collector_name="datacollector")
 chart2 = mesa.visualization.ChartModule([{"Label": "Migration Count", "Color": "Red"}], data_collector_name="datacollector")
-
 server = mesa.visualization.ModularServer(Population, [geospace_element, num_agents_element, chart1,chart2], "Population Model")

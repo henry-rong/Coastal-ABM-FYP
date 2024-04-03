@@ -1,5 +1,5 @@
 import uuid
-
+import random
 import geopandas as gpd
 import mesa
 from mesa_geo.geoagent import GeoAgent
@@ -7,7 +7,7 @@ from mesa_geo.geospace import GeoSpace
 from mesa_geo.raster_layers import Cell, RasterLayer
 from agent.building import Building
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, DefaultDict
 
 import pyogrio
 gpd.options.io_engine = "pyogrio"
@@ -34,12 +34,16 @@ class Sea(GeoAgent):
 class CoastalArea(GeoSpace):
     #type hints
     homes: Tuple[Building]
+    home_counter: DefaultDict[mesa.space.FloatCoordinate, int]
     _buildings: Dict[int, Building]
+
 
     def __init__(self, crs):
         super().__init__(crs=crs)
-        self.homes = ()
-        self._buildings = {}
+        self.homes = () # a tuple of homes
+        self._buildings = {} # a dictionary containing key: unique_id value: Building
+        self.building_ids = set() # a set of all building unique_id
+        self.occupied = set() # a set of occupied building_id
 
     def load_data(self, population_gzip_file, sea_zip_file, world_zip_file):
         world_size = gpd.GeoDataFrame.from_file(world_zip_file)
@@ -61,12 +65,23 @@ class CoastalArea(GeoSpace):
     def population_layer(self):
         return self.layers[0]
     
-    def add_buildings(self, agents) -> None:
+    # Add all Buildings from OSM data to the space 
+    def add_buildings(self, agents) -> None: # note that agent here refers to the Building agent, not the Household agent
         super().add_agents(agents)
         homes = []
         for agent in agents:
             if isinstance(agent, Building):
-                self._buildings[agent.unique_id] = agent
-                homes.append(agent)
-
+                self._buildings[agent.unique_id] = agent # a buildings dictionary with unique_id keys
+                homes.append(agent) # append a Building agent
+                self.building_ids.add(agent.unique_id)
         self.homes = self.homes + tuple(homes)
+
+   
+    def update_home_counter(  # is this needed?
+            self,
+            home_pos: mesa.space.FloatCoordinate
+    ) -> None:
+        self.home_counter[home_pos] += 1
+
+    def get_random_home(self) -> Building:
+        return random.choice(self.homes)

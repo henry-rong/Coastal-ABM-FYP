@@ -47,50 +47,25 @@ class Population(mesa.Model):
             agent_reporters={"Adaptation":"flood_preparedness"},
         )
 
-    # random coordinate household assignment
-    # def _create_households(self):
-    #     household_size = 3.5 # no. of people per household. taken from Tierolf paper
-    #     num_agents = 0
-    #     for cell in self.space.population_layer:
-    #         popu_round = math.ceil(cell.population/household_size) # divide person population by household size
-    #         if popu_round > 0: # all non-zero raster cells
-    #             for _ in range(popu_round):
-    #                 num_agents += 1
-    #                 point = Point(self.space.population_layer.transform * cell.indices)
-    #                 if not point.within(self.space.sea): # that are not in the sea
-    #                     household = Household(
-    #                         unique_id=uuid.uuid4().int,
-    #                         model=self,
-    #                         crs=self.space.crs,
-    #                         geometry=point,
-    #                         img_coord=cell.indices,
-    #                     )
-    #                     household.set_random_world_coord() # NOTE: modify to set random Building
-    #                     self.space.add_agents(household)
-    #                     self.schedule.add(household)
-
     def _create_households(self):
         household_size = 3.5 # no. of people per household. taken from Tierolf paper
         num_agents = 0
-        unallocated_buildings = list(self.space.homes)
         for cell in self.space.population_layer:
             popu_round = math.ceil(cell.population/household_size) # divide person population by household size
             if popu_round > 0: # all non-zero raster cells
                 for _ in range(popu_round):
                     num_agents += 1
-
-                    point = Point(self.space.population_layer.transform * cell.indices)
-                    if not point.within(self.space.sea): # that are not in the sea
-                        household = Household(
-                            unique_id=uuid.uuid4().int,
-                            model=self,
-                            crs=self.space.crs,
-                            geometry=point,
-                            img_coord=cell.indices,
-                        )
-                        household.set_random_world_coord() # NOTE: modify to set random Building
-                        self.space.add_agents(household)
-                        self.schedule.add(household)
+                    random_home = self.space.get_random_home()
+                    household = Household(
+                        unique_id=uuid.uuid4().int,
+                        model=self,
+                        # crs=self.space.crs,
+                        # img_coord=cell.indices,
+                    )
+                    household.set_home(random_home)
+                    # self.space.add_agents(household)
+                    self.schedule.add(household)
+                    # maybe worth deleting house tuple after initialisation for performance
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         
@@ -110,3 +85,5 @@ class Population(mesa.Model):
         self.datacollector.collect(self)
         self.schedule.step()
         self.sea_level -= stochastic_storm
+
+        
