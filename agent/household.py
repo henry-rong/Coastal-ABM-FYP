@@ -47,8 +47,8 @@ class Household(mesa.Agent):
     # crs: pyproj.CRS
     my_home: Building
 
-    MOBILITY_RANGE_X = 0.0
-    MOBILITY_RANGE_Y = 0.0
+    # MOBILITY_RANGE_X = 0.0
+    # MOBILITY_RANGE_Y = 0.0
 
     # def __init__(self, unique_id, model, geometry, crs, img_coord):
     #     super().__init__(unique_id, model, geometry, crs)
@@ -72,7 +72,6 @@ class Household(mesa.Agent):
     def step(self):
         # dictionary of expected utility
         utility_case = expected_utility(self.income, self.savings, self.my_home.flood_preparedness, self.my_home.elevation, self.my_home.property_value, self.model.sea_level)
-
         match utility_case:
             case 'nothing':
                 if self.model.sea_level > self.my_home.elevation + self.my_home.flood_preparedness: # flooded
@@ -88,9 +87,10 @@ class Household(mesa.Agent):
 
         self.model.migration_count += 1
         self.my_home.occupied = 0
-        self.model.space.occupied.remove(self.my_home.unique_id)
+        
         new_home_id = random.choice(list(self.model.space.building_ids.difference(self.model.space.occupied))) # if slow, look at https://stackoverflow.com/questions/15993447/python-data-structure-for-efficient-add-remove-and-random-choice
         new_home = self.model.space._buildings.get(new_home_id)
+        self.model.space.occupied.remove(self.my_home.unique_id)
         self.set_home(new_home)
 
 

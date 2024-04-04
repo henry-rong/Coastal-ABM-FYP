@@ -29,16 +29,17 @@ class Population(mesa.Model):
     ):
         super().__init__()
         self.step_count = 0
+        self.num_agents = 0
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
         self._load_building_from_file(building_file, crs=self.space.crs)
         pixel_size_x, pixel_size_y = self.space.population_layer.resolution
-        Household.MOBILITY_RANGE_X = pixel_size_x / 2
-        Household.MOBILITY_RANGE_Y = pixel_size_y / 2
+        # Household.MOBILITY_RANGE_X = pixel_size_x / 2
+        # Household.MOBILITY_RANGE_Y = pixel_size_y / 2
         self.schedule = mesa.time.RandomActivation(self)
         self._create_households()
         self.migration_count = 0
-
+        
         # sea level rise
 
         self.sea_level = 0 # max sea level in year timestep. unit is metres
@@ -49,12 +50,11 @@ class Population(mesa.Model):
 
     def _create_households(self):
         household_size = 3.5 # no. of people per household. taken from Tierolf paper
-        num_agents = 0
         for cell in self.space.population_layer:
             popu_round = math.ceil(cell.population/household_size) # divide person population by household size
             if popu_round > 0: # all non-zero raster cells
                 for _ in range(popu_round):
-                    num_agents += 1
+                    self.num_agents += 1
                     random_home = self.space.get_random_home()
                     household = Household(
                         unique_id=uuid.uuid4().int,
@@ -63,9 +63,9 @@ class Population(mesa.Model):
                         # img_coord=cell.indices,
                     )
                     household.set_home(random_home)
-                    # self.space.add_agents(household)
+                    # self.space.add_agents(household) # not needed as Household agent is no longer geoagent
                     self.schedule.add(household)
-                    # maybe worth deleting house tuple after initialisation for performance
+        del self.space.homes # remove homes list to free from memory after initialisation
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         

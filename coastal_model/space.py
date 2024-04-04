@@ -40,7 +40,7 @@ class CoastalArea(GeoSpace):
 
     def __init__(self, crs):
         super().__init__(crs=crs)
-        self.homes = () # a tuple of homes
+        self.homes = [] # a list of homes for initialisation
         self._buildings = {} # a dictionary containing key: unique_id value: Building
         self.building_ids = set() # a set of all building unique_id
         self.occupied = set() # a set of occupied building_id
@@ -68,13 +68,11 @@ class CoastalArea(GeoSpace):
     # Add all Buildings from OSM data to the space 
     def add_buildings(self, agents) -> None: # note that agent here refers to the Building agent, not the Household agent
         super().add_agents(agents)
-        homes = []
         for agent in agents:
             if isinstance(agent, Building):
                 self._buildings[agent.unique_id] = agent # a buildings dictionary with unique_id keys
-                homes.append(agent) # append a Building agent
+                self.homes.append(agent) # append a Building agent
                 self.building_ids.add(agent.unique_id)
-        self.homes = self.homes + tuple(homes)
 
    
     def update_home_counter(  # is this needed?
@@ -84,4 +82,6 @@ class CoastalArea(GeoSpace):
         self.home_counter[home_pos] += 1
 
     def get_random_home(self) -> Building:
-        return random.choice(self.homes)
+        random_building = random.choice(self.homes)
+        self.homes.remove(random_building) 
+        return random_building

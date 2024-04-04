@@ -12,7 +12,7 @@ class NumAgentsElement(mesa.visualization.TextElement):
         super().__init__()
 
     def render(self, model):
-        return f"Number of Agents: {len(model.space.agents)}  Migration Count: {model.migration_count}"
+        return f"Number of Agents: {model.num_agents}  Migration Count: {model.migration_count}"
 
 def agent_portrayal(agent):
 
