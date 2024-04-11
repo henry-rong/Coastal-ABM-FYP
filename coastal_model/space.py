@@ -45,21 +45,25 @@ class CoastalArea(GeoSpace):
         self.building_ids = set() # a set of all building unique_id
         self.occupied = set() # a set of occupied building_id
 
-    def load_data(self, population_gzip_file, sea_zip_file, world_zip_file):
+    def load_data(self, population_gzip_file, sea_zip_file, world_zip_file) -> None:
+        # add the world bounds to crop subsequent GIS files
         world_size = gpd.GeoDataFrame.from_file(world_zip_file)
         
+        # add the population raster file
         raster_layer = RasterLayer.from_file(
             f"/vsigzip/{population_gzip_file}",
             cell_cls=CoastalCell,
             attr_name="population",
         )
         raster_layer.crs = world_size.crs
+        # crop the population raster file using the world bounds
         raster_layer.total_bounds = world_size.total_bounds
         self.add_layer(raster_layer)
 
+        # add coastline vectors as geometry
         self.sea = gpd.GeoDataFrame.from_file(sea_zip_file).geometry[0]
-        
-        self.add_agents(GeoAgent(uuid.uuid4().int, None, self.sea, self.crs))
+        self.add_agents(GeoAgent(uuid.uuid4().int, None, self.sea, self.crs)) # add the coastline geometry
+
 
     @property
     def population_layer(self):
@@ -85,3 +89,18 @@ class CoastalArea(GeoSpace):
         random_building = random.choice(self.homes)
         self.homes.remove(random_building) 
         return random_building
+    
+    def load_flood_depth(self, depth_gzip_file, world_zip_file) -> None:
+        """
+        Function updates the model flood depth layer using a world cop
+        """
+        # add the world bounds to crop subsequent GIS files
+        world_size = gpd.GeoDataFrame.from_file(world_zip_file)
+        raster_layer = RasterLayer.from_file(
+            f"/vsigzip/{depth_gzip_file}",
+            cell_cls=CoastalCell,
+            attr_name="depth",
+        )
+        raster_layer.crs = world_size.crs
+        raster_layer.total_bounds = world_size.total_bounds
+        self.add_layer(raster_layer)

@@ -1,6 +1,7 @@
 import math
 import random
 import uuid
+from glob import glob
 import mesa
 import mesa_geo as mg
 import numpy as np
@@ -25,6 +26,7 @@ class Population(mesa.Model):
         sea_zip_file="data/sea2.zip",
         world_zip_file="data/clip2.zip",
         building_file = "data/fairbourne_buildings.geojson"
+        # depth_gzip_file = "data/depth"
 
     ):
         super().__init__()
@@ -32,6 +34,7 @@ class Population(mesa.Model):
         self.num_agents = 0
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
+        # self.space.load_flood_depth(depth_gzip_file,world_zip_file)
         self._load_building_from_file(building_file, crs=self.space.crs)
         pixel_size_x, pixel_size_y = self.space.population_layer.resolution
         # Household.MOBILITY_RANGE_X = pixel_size_x / 2
@@ -47,6 +50,7 @@ class Population(mesa.Model):
             model_reporters={"Sea Level": call_sea_level, "Migration Count": call_migration_count},
             agent_reporters={"Adaptation":"flood_preparedness"},
         )
+
 
     def _create_households(self):
         household_size = 3.5 # no. of people per household. taken from Tierolf paper
@@ -85,5 +89,7 @@ class Population(mesa.Model):
         self.datacollector.collect(self)
         self.schedule.step()
         self.sea_level -= stochastic_storm
+
+        # get next flood depth layer
 
         
