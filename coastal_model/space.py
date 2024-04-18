@@ -2,6 +2,8 @@ import uuid
 import random
 import geopandas as gpd
 import mesa
+import math
+import numpy as np
 from mesa_geo.geoagent import GeoAgent
 from mesa_geo.geospace import GeoSpace
 from mesa_geo.raster_layers import Cell, RasterLayer
@@ -14,6 +16,7 @@ gpd.options.io_engine = "pyogrio"
 
 class CoastalCell(Cell): # this class is used to represent each cell in the raster layer
     population: float | None
+    depth: float | None
 
     def __init__(
         self,
@@ -22,6 +25,7 @@ class CoastalCell(Cell): # this class is used to represent each cell in the rast
     ):
         super().__init__(pos, indices)
         self.population = None
+        self.depth = None 
 
     def step(self):
         pass
@@ -44,6 +48,7 @@ class CoastalArea(GeoSpace):
         self._buildings = {} # a dictionary containing key: unique_id value: Building
         self.building_ids = set() # a set of all building unique_id
         self.occupied = set() # a set of occupied building_id
+        self.max_depth = None
 
     def load_data(self, population_gzip_file, sea_zip_file, world_zip_file) -> None:
         # add the world bounds to crop subsequent GIS files
@@ -104,3 +109,38 @@ class CoastalArea(GeoSpace):
         raster_layer.crs = world_size.crs
         raster_layer.total_bounds = world_size.total_bounds
         self.add_layer(raster_layer)
+
+    @property
+    def depth_layer(self):
+        return self.layers[1]
+    
+    def read_rasters(self) -> None:
+
+        raster_values = self.depth_layer.get_raster('depth')
+
+        self.max_depth = np.amax(raster_values) # needed for data collector
+        max_depth_pos = np.unravel_index(np.argmax(raster_values),raster_values.shape)
+        max_coord = self.cell_pos_to_coord(self.depth_layer,max_depth_pos[1:]) # this was for checking purposes - can remove
+
+        for k,v in self._buildings.items():
+            index = self.coord_to_cell_pos(self.depth_layer,self._buildings[k].centroid)
+            depth_at_point = raster_values[0][index]
+            self._buildings[k].inundation = depth_at_point
+
+
+    def remove_latest_layer(self) -> None:
+        self._static_layers.pop()
+
+
+    def coord_to_cell_pos(self,layer,coordinates:Tuple) -> Tuple:
+        # may need to asset that crs of coordinate matches that of layer
+        x,y = coordinates
+        min_x, min_y, max_x, max_y = layer.total_bounds
+        return (math.floor((y - min_y)/(max_y-min_y)*(layer.height-1)),math.floor((x - min_x)/(max_x-min_x)*(layer.width-1))) # format in y,x to access nparray
+
+    
+    def cell_pos_to_coord(self,layer,pos) -> Tuple:
+        pos_y, pos_x = pos
+        min_x, min_y, max_x, max_y = layer.total_bounds
+        return (pos_x/(layer.width-1)*(max_x-min_x)+min_x,pos_y/(layer.height-1)*(max_y-min_y)+min_y)
+

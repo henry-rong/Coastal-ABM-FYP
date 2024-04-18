@@ -19,10 +19,13 @@ class Building(mg.GeoAgent):
         self.name = str(uuid.uuid4())
         self.occupied = 0 # At initialisation, all homes are empty
         self.flood_preparedness = np.random.normal(0, 0.5) # metres of flood barrier
-        # self.flood_preparedness = 69
-        self.elevation = 0 # initial height above sea level in metres        
+        self.inundation = 0        
         self.property_value = np.random.normal(100,50) # amenity value of the location in £1k
-        # self.amenity = 100
+        self.test = None
+
+    def get_raster_value(self):
+        self.test = self.model.space.population_layer.get_cell_list_contents(self.centroid)
+
 
     def __repr__(self) -> str:
         return (

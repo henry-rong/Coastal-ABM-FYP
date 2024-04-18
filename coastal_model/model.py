@@ -11,10 +11,15 @@ from agent.household import Household
 from agent.building import Building
 from .space import CoastalArea
 
-# define functions
+def fp(rp):
+    return sorted(glob(f"data/processed/{rp}/*.gz"))
 
-def call_sea_level(model):
-    return model.sea_level
+return_periods = ['rp0001', 'rp0002', 'rp0005', 'rp0010', 'rp0050', 'rp0100', 'rp0250', 'rp0500', 'rp1000']
+
+depth_fps = dict([(rp, fp(rp)) for rp in return_periods]) # depth filepaths
+
+def call_flood_level(model):
+    return model.space.max_depth
 
 def call_migration_count(model):
     return model.migration_count
@@ -24,9 +29,9 @@ class Population(mesa.Model):
         self,
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
-        world_zip_file="data/clip2.zip",
-        building_file = "data/fairbourne_buildings.geojson"
-        # depth_gzip_file = "data/depth"
+        world_zip_file="data/clip2.zip", # slightly redundant as preprocessed tif already masked
+        building_file = "data/fairbourne_buildings.geojson",
+        depth_gzip_file = depth_fps['rp0001'][0] # the initial baseline value in 2010
 
     ):
         super().__init__()
@@ -34,20 +39,14 @@ class Population(mesa.Model):
         self.num_agents = 0
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
-        # self.space.load_flood_depth(depth_gzip_file,world_zip_file)
+        self.space.load_flood_depth(depth_gzip_file,world_zip_file)
         self._load_building_from_file(building_file, crs=self.space.crs)
-        pixel_size_x, pixel_size_y = self.space.population_layer.resolution
-        # Household.MOBILITY_RANGE_X = pixel_size_x / 2
-        # Household.MOBILITY_RANGE_Y = pixel_size_y / 2
+        self.space.read_rasters()
         self.schedule = mesa.time.RandomActivation(self)
         self._create_households()
-        self.migration_count = 0
-        
-        # sea level rise
-
-        self.sea_level = 0 # max sea level in year timestep. unit is metres
+        self.migration_count = 0        
         self.datacollector = mesa.DataCollector(
-            model_reporters={"Sea Level": call_sea_level, "Migration Count": call_migration_count},
+            model_reporters={"Max Flood Inundation": call_flood_level, "Migration Count": call_migration_count},
             agent_reporters={"Adaptation":"flood_preparedness"},
         )
 
@@ -63,33 +62,43 @@ class Population(mesa.Model):
                     household = Household(
                         unique_id=uuid.uuid4().int,
                         model=self,
-                        # crs=self.space.crs,
-                        # img_coord=cell.indices,
                     )
                     household.set_home(random_home)
-                    # self.space.add_agents(household) # not needed as Household agent is no longer geoagent
                     self.schedule.add(household)
         del self.space.homes # remove homes list to free from memory after initialisation
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         
         buildings_df = gpd.read_file(buildings_file)
-        buildings_df = buildings_df.set_crs(self.space.crs,allow_override=True).to_crs(crs)
+        buildings_df = buildings_df.set_crs(self.space.crs,allow_override=True).to_crs(crs) # NOTE: drop all headers but needed, so performance is improved
         buildings_df["centroid"] = list(zip(buildings_df.centroid.x, buildings_df.centroid.y)) # polygons are small
+        buildings_df["area"] = np.floor(buildings_df.geometry.to_crs("EPSG:27700").area) # to m2 # polygons are small
         building_creator = mg.AgentCreator(Building, model=self)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.space.add_buildings(buildings)
 
+    def generate_return_period(self) -> float:
+        
+        rp0001 = 1-1/2-1/5-1/10-1/50-1/100-1/250-1/500-1/1000 # make the rp0001 the default if none of the other return periods occur
+
+        probabilities = [rp0001,1/2,1/5,1/10,1/50,1/100,1/250,1/500,1/1000]
+        sampled_return_period = np.random.choice(a = return_periods,p = probabilities)
+
+        return sampled_return_period
+
+
+    def update_flood_depths(self, year, rp):
+        self.space.remove_latest_layer() # clear previous layer
+        self.space.load_flood_depth(depth_fps[rp][year],"data/clip2.zip") # load next filepath based on randomly generated rp and replace flood layer
+        self.space.read_rasters()
+
 
     def step(self): #from 2010 to 2080
 
-        self.step_count +=1
-        stochastic_storm = np.random.choice(a = [0, 2 + self.step_count],p = [(1 - (1+self.step_count/100)/100),(1+self.step_count/100)/100])
-        self.sea_level += self.step_count/1000 + stochastic_storm # m/year # includes a flood variation
+        # run a step
         self.datacollector.collect(self)
         self.schedule.step()
-        self.sea_level -= stochastic_storm
 
         # get next flood depth layer
-
-        
+        self.step_count +=1
+        self.update_flood_depths(self.step_count,self.generate_return_period())

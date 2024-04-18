@@ -8,28 +8,36 @@ import pyproj
 from shapely.geometry import Point
 from agent.building import Building
 
-migration_cost = 10 # £1k
+migration_cost = 10 # £1k - needs to change to scale with property value
 
-def damage(level):
+def damage(level, area):
     if level < 0:
         return 0
+    
+    elif (level < 5.363): #
+        cost_per_m2 =  -0.0338*level**2 + 0.3626*level
+        # need to do pound to euro conversion with time - state as limitation
+        return cost_per_m2 * area
     else:
-        # return (1/3*math.log(math.exp(-9/5) + level*3)+3/5)*10 # cost of damage in £1k, assuming 100 sq m house
-        return level*10
+        return area
+    
+def defence_cost():
+    return 10
 
-def expected_utility(income, savings, flood_preparedness, elevation, property_value, sea_level):
+def expected_utility(income, savings, flood_preparedness, property_value, flood_level, damage):
     """Calculate the expected utility of the household."""
     sums = savings + property_value + income
 
-    flood_damage = damage(sea_level)
+    flood_damage = damage
 
-    # Adapt
-    if sea_level < elevation:
+    # Nothing
+    if flood_level < flood_preparedness:
         nothing = sums
-    else:
+    else: # flooded!
         nothing = sums - flood_damage
     
-    adapt = sums + damage(flood_preparedness) - flood_damage
+    # Adapt - assuming perfect defence
+    adapt = sums - defence_cost()
     
     # Migrate
     migrate = sums - migration_cost
@@ -39,20 +47,11 @@ def expected_utility(income, savings, flood_preparedness, elevation, property_va
     # returns string of the action with the highest utility
     return utility.get(max(utility))
 
-# class Household(mg.GeoAgent):
 class Household(mesa.Agent):
     unique_id: int # household_id used to link households and building nodes
     model: mesa.Model
-    # geometry: Point
-    # crs: pyproj.CRS
     my_home: Building
 
-    # MOBILITY_RANGE_X = 0.0
-    # MOBILITY_RANGE_Y = 0.0
-
-    # def __init__(self, unique_id, model, geometry, crs, img_coord):
-    #     super().__init__(unique_id, model, geometry, crs)
-    #     self.img_coord = img_coord
 
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
@@ -70,13 +69,23 @@ class Household(mesa.Agent):
 
 
     def step(self):
-        # dictionary of expected utility
-        utility_case = expected_utility(self.income, self.savings, self.my_home.flood_preparedness, self.my_home.elevation, self.my_home.property_value, self.model.sea_level)
+
+        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate once
+
+        # return outcome of expected utility
+        utility_case = expected_utility(
+            income = self.income, 
+            savings= self.savings, 
+            flood_preparedness=self.my_home.flood_preparedness, 
+            property_value=self.my_home.property_value, 
+            flood_level=self.my_home.inundation,
+            damage=step_damage)
+        
         match utility_case:
             case 'nothing':
-                if self.model.sea_level > self.my_home.elevation + self.my_home.flood_preparedness: # flooded
-                    self.my_home.property_value -= damage(self.model.sea_level)
-                    
+                # apply damage
+                if self.my_home.flood_preparedness : # flooded
+                    self.my_home.property_value -= step_damage
                 pass
             case 'adapt':
                 self.adapt()
@@ -90,10 +99,13 @@ class Household(mesa.Agent):
         
         new_home_id = random.choice(list(self.model.space.building_ids.difference(self.model.space.occupied))) # if slow, look at https://stackoverflow.com/questions/15993447/python-data-structure-for-efficient-add-remove-and-random-choice
         new_home = self.model.space._buildings.get(new_home_id)
+
+        # return property value of new home to migration cost first before comitting - need to inspect attributes of flood prepardness, property value, area / household size ratio
+
         self.model.space.occupied.remove(self.my_home.unique_id)
         self.set_home(new_home)
 
 
-    def adapt(self):
+    def adapt(self) -> None:
         self.my_home.flood_preparedness += 0.5
         self.savings -= 10
