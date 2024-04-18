@@ -44,10 +44,10 @@ def agent_portrayal(agent):
                 "weight": 1,
             }
 
-
+model_params = {}
 
 geospace_element = mg.visualization.MapModule(agent_portrayal,map_width=700)
 num_agents_element = NumAgentsElement()
-chart1 = mesa.visualization.ChartModule([{"Label": "Sea Level", "Color": "Black"}], data_collector_name="datacollector")
+chart1 = mesa.visualization.ChartModule([{"Label": "Max Flood Inundation", "Color": "Black"}], data_collector_name="datacollector")
 chart2 = mesa.visualization.ChartModule([{"Label": "Migration Count", "Color": "Red"}], data_collector_name="datacollector")
 server = mesa.visualization.ModularServer(Population, [geospace_element, num_agents_element, chart1,chart2], "Population Model",model_params)
