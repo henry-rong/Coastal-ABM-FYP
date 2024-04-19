@@ -29,7 +29,7 @@ def agent_portrayal(agent):
                 "fillOpacity": 1,
             }
 
-            portrayal["fillColor"] = "White" if agent.occupied == 0 else ("#ff5226" if agent.flood_preparedness < 0.5 else "#20f720")
+            portrayal["fillColor"] = "White" if agent.occupied == 0 else ("#ff5226" if agent.flood_preparedness < agent.inundation else "#20f720") # red if underprepared, else green
 
             return portrayal
 

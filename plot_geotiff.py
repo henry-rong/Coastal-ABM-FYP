@@ -31,6 +31,7 @@ import gzip
 import shutil
 import os
 import matplotlib.colors as colors
+from PIL import Image
 
 # List of paths to your GeoTIFF files
 # geotiff_files = sorted(glob("data/processed/rp0001/inuncoast_rcp8p5_nosub_*_rp0001_5_perc_05.tif.gz"))  # Add more files as needed
@@ -38,8 +39,12 @@ import matplotlib.colors as colors
 geotiff_files = sorted(glob('data/processed/rp0001/*.gz'))
 # geotiff_files = sorted(glob('data/windowed/inuncoast_rcp8p5_nosub_*_rp0001_5_perc_05.tif.gz'))
 
+# Set the desired frame size (in inches)
+frame_width = 10
+frame_height = 8
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(frame_width, frame_height))
+
 
 def update(frame):
     ax.clear()
@@ -55,4 +60,17 @@ def update(frame):
     ax.set_axis_off()
 
 ani = animation.FuncAnimation(fig, update, frames=len(geotiff_files), interval=100)
-plt.show()
+# plt.show()
+
+# Save each frame as an image
+for i in range(len(geotiff_files)):
+    update(i)  # Update the plot for each frame
+    plt.savefig('frame_{}.png'.format(i), dpi=300)  # Save the current frame as a PNG image
+
+# Combine the images into a GIF
+images = []
+for i in range(len(geotiff_files)):
+    img = Image.open('frame_{}.png'.format(i))
+    images.append(img)
+
+images[0].save('animation.gif', save_all=True, append_images=images[1:], duration=1000, loop=0)
