@@ -8,10 +8,11 @@ from mesa_geo.geoagent import GeoAgent
 from mesa_geo.geospace import GeoSpace
 from mesa_geo.raster_layers import Cell, RasterLayer
 from agent.building import Building
-
 from typing import Dict, Tuple, DefaultDict
-
 import pyogrio
+
+
+
 gpd.options.io_engine = "pyogrio"
 
 class CoastalCell(Cell): # this class is used to represent each cell in the raster layer

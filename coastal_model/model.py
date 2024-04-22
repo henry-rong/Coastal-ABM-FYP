@@ -10,6 +10,11 @@ from shapely.geometry import Point
 from agent.household import Household
 from agent.building import Building
 from .space import CoastalArea
+import networkx as nx
+import copy
+
+
+
 
 def fp(rp):
     return sorted(glob(f"data/processed/{rp}/*.gz"))
@@ -31,10 +36,13 @@ class Population(mesa.Model):
         sea_zip_file="data/sea2.zip",
         world_zip_file="data/clip2.zip", # slightly redundant as preprocessed tif already masked
         building_file = "data/fairbourne_buildings.geojson",
-        depth_gzip_file = depth_fps['rp0001'][0] # the initial baseline value in 2010
+        depth_gzip_file = depth_fps['rp0001'][0], # the initial baseline value in 2010
+        network_file = "neighbours_50m.graphml"
 
     ):
         super().__init__()
+        self.neighbours_lookup = nx.read_graphml(network_file)
+        self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup)
         self.step_count = 0
         self.num_agents = 0
         self.space = CoastalArea(crs="epsg:4326")
@@ -52,6 +60,8 @@ class Population(mesa.Model):
 
 
     def _create_households(self):
+
+        occupied_houses = set() # get occupied properties
         household_size = 3.5 # no. of people per household. taken from Tierolf paper
         for cell in self.space.population_layer:
             popu_round = math.ceil(cell.population/household_size) # divide person population by household size
@@ -59,13 +69,18 @@ class Population(mesa.Model):
                 for _ in range(popu_round):
                     self.num_agents += 1
                     random_home = self.space.get_random_home()
+                    occupied_houses.add(random_home.unique_id)
                     household = Household(
                         unique_id=uuid.uuid4().int,
                         model=self,
                     )
                     household.set_home(random_home)
                     self.schedule.add(household)
-        del self.space.homes # remove homes list to free from memory after initialisation
+
+        nodes_to_remove = self.space.building_ids.difference(occupied_houses)
+        nodes_to_remove_str = {str(x) for x in nodes_to_remove} # issue is that node values are strings, not ints
+        self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove_str)) # set difference gets unoccupied houses, which are then removed from the list
+        del self.space.homes # remove homes list (used for random_home) to free from memory after initialisation
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         
