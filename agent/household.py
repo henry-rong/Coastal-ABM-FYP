@@ -7,6 +7,7 @@ import numpy as np
 import pyproj
 from shapely.geometry import Point
 from agent.building import Building
+import geopandas as gpd
 
 migration_cost = 10 # £1k - needs to change to scale with property value
 
@@ -21,9 +22,6 @@ def damage(level, area):
     else:
         return area
     
-def defence_cost():
-    return 10
-
 
 class Household(mesa.Agent):
     unique_id: int # household_id used to link households and building nodes
@@ -45,6 +43,7 @@ class Household(mesa.Agent):
     def set_home(self, new_home: Building ) -> None:
         new_home.occupied = 1
         self.my_home = new_home
+        self.my_home.household_id = self.unique_id # assign household id to building (so you can lookup household from Building)
         self.model.space.occupied.add(self.my_home.unique_id)
 
     def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage):
@@ -61,7 +60,7 @@ class Household(mesa.Agent):
             nothing = sums - flood_damage
         
         # Adapt - assuming perfect defence
-        adapt = sums - defence_cost()
+        adapt = sums - self.defence_cost()
         
         # Migrate
         migrate = sums - migration_cost
@@ -73,9 +72,9 @@ class Household(mesa.Agent):
 
     def step(self):
         
-        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate once
+        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate once      
 
-        
+        neighbourhood_attributes = self.get_neighbourhood_attributes()
 
         # return outcome of expected utility
         utility_case = self.expected_utility(
@@ -95,7 +94,54 @@ class Household(mesa.Agent):
             case 'adapt':
                 self.adapt()
             case 'migrate':
-                self.migrate()
+                properties = self.sample_properties()
+                chosen_property = self.evaluate_properties(properties)
+                self.migrate(chosen_property)
+
+    def get_neighbourhood_attributes(self):
+        
+        # NOTE: neighbour network is by building, not the social network of households
+        # get list of occupied building nodes connected to household agent
+        neighbours = self.model.dynamic_neighbours.neighbours(self.my_home.unique_id)
+        # calculate average flood preparedness, property value, inundation height
+        fp,pv,ih = 0,0,0
+        
+        buildings = self.model.space._buildings
+        household_ids = []
+        for neighbour_id in neighbours:
+            building = buildings.get(neighbour_id)
+            fp+=building.flood_preparedness
+            pv+=building.property_value
+            ih+=building.inundation
+            household_ids.append(building.household_id) # populate list of household_ids
+
+        no = len(neighbours) # number of neighbours
+
+        fp,pv,ih = fp/no,pv/no,ih/no # calculate averages
+           
+        # calculate average of floods experienced and timesteps since last flood
+
+        fe,tslf = 0,0
+
+        households = self.model.households
+        for household_id in household_ids:
+             household = self.model.schedule._agents[household_id]
+             fe+=household.floods_experienced
+             tslf+=household.timesteps_since_last_flood
+        # return list of averages: 
+        fe,tslf = fe/no,tslf/no
+        # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
+        # to be accessed by indexing
+        return [fp,pv,ih,fe,tslf]
+        
+
+    def defence_cost(self):
+        return np.random.normal(10,5) # k£
+    
+
+    def adapt(self, defence_cost) -> None:
+        self.my_home.flood_preparedness += 0.5
+        self.savings -= defence_cost
 
     def sample_properties(self, num_properties):
 
@@ -108,18 +154,35 @@ class Household(mesa.Agent):
             new_home_id = random.choice(list(self.model.space.building_ids.difference(self.model.space.occupied))) # if slow, look at https://stackoverflow.com/questions/15993447/python-data-structure-for-efficient-add-remove-and-random-choice
             new_home = self.model.space._buildings.get(new_home_id)
 
-            properties["new_home_id"] = new_home
+            properties[new_home_id] = new_home
 
         return properties
 
-    def evaluate_properties(properties: dict):
+    def evaluate_properties(self, properties: dict):
 
         # calculates fixed cost and variable migration costs
 
+        current_point = self.my_home.centroid
+
+        var_cost = {}
+        property_costs = {}
+        cost_per_m = 10
+
+        # for each property in sample, calculate the distance away
         for property_id, property in properties:
-            ...
+
+            property_point = property.centroid         
+            points_df = gpd.GeoDataFrame({'geometry': [current_point, property_point]}, crs='EPSG:4326')
+            points_df = points_df.to_crs("EPSG:27700")
+            points_df2 = points_df.shift()
+            dist = points_df.distance(points_df2)
+            # variable cost
+            var_cost[property_id] = dist*cost_per_m
+            property_costs[property_id] = self.model.space._buildings[property_id].property_value
+
 
         # return property_cost
+
 
     def migrate(self, new_home) -> None:
 
@@ -128,8 +191,8 @@ class Household(mesa.Agent):
         self.model.migration_count += 1
         self.my_home.occupied = 0
 
-        self.model.space.occupied.remove(self.my_home.unique_id)
-        self.set_home(new_home)
+        self.model.space.occupied.remove(self.my_home.unique_id) # remove using building unique_id
+        self.set_home(new_home) # set building geoagent as new home
 
         # drop old node from network
         G = self.model.dynamic_neighbours
@@ -149,6 +212,3 @@ class Household(mesa.Agent):
                     G.add_edge(edge[0], new_node)
 
 
-    def adapt(self) -> None:
-        self.my_home.flood_preparedness += 0.5
-        self.savings -= 10

@@ -34,15 +34,15 @@ class Population(mesa.Model):
         self,
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
-        world_zip_file="data/clip2.zip", # slightly redundant as preprocessed tif already masked
+        world_zip_file="data/clip2.zip", # slightly redundant if preprocessed tif already masked
         building_file = "data/fairbourne_buildings.geojson",
         depth_gzip_file = depth_fps['rp0001'][0], # the initial baseline value in 2010
         network_file = "neighbours_50m.graphml"
 
     ):
         super().__init__()
-        self.neighbours_lookup = nx.read_graphml(network_file)
-        self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup)
+        self.neighbours_lookup = nx.read_graphml(network_file) # static graph to lookup which buildings are connected regardless of occupancy
+        self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup) # dynamic graph only showing occupied buildings, indexed with unique_id (matching unique_id of Building geoagents)
         self.step_count = 0
         self.num_agents = 0
         self.space = CoastalArea(crs="epsg:4326")
@@ -77,9 +77,10 @@ class Population(mesa.Model):
                     household.set_home(random_home)
                     self.schedule.add(household)
 
-        nodes_to_remove = self.space.building_ids.difference(occupied_houses)
-        nodes_to_remove_str = {str(x) for x in nodes_to_remove} # issue is that node values are strings, not ints
-        self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove_str)) # set difference gets unoccupied houses, which are then removed from the list
+        # create a dynamic NetworkX graph of building neighbourhood
+        nodes_to_remove = self.space.building_ids.difference(occupied_houses) # define unoccupied houses
+        nodes_to_remove_str = {str(x) for x in nodes_to_remove} # NOTE: node keys are strings, not ints
+        self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove_str)) # remove from the list
         del self.space.homes # remove homes list (used for random_home) to free from memory after initialisation
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
