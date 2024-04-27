@@ -12,7 +12,7 @@ params = {}
 results = mesa.batch_run(
     Population,
     parameters=params,
-    iterations=50,
+    iterations=1,
     max_steps=69,
     number_processes=1,
     data_collection_period=1,

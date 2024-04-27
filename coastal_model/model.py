@@ -41,7 +41,7 @@ class Population(mesa.Model):
 
     ):
         super().__init__()
-        self.neighbours_lookup = nx.read_graphml(network_file) # static graph to lookup which buildings are connected regardless of occupancy
+        self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_file)) # static graph to lookup which buildings are connected regardless of occupancy
         self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup) # dynamic graph only showing occupied buildings, indexed with unique_id (matching unique_id of Building geoagents)
         self.step_count = 0
         self.num_agents = 0
@@ -79,9 +79,10 @@ class Population(mesa.Model):
 
         # create a dynamic NetworkX graph of building neighbourhood
         nodes_to_remove = self.space.building_ids.difference(occupied_houses) # define unoccupied houses
-        nodes_to_remove_str = {str(x) for x in nodes_to_remove} # NOTE: node keys are strings, not ints
-        self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove_str)) # remove from the list
+        # nodes_to_remove_str = {str(x) for x in nodes_to_remove} # NOTE: node keys are strings, not ints
+        self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove)) # remove from the list
         del self.space.homes # remove homes list (used for random_home) to free from memory after initialisation
+        print("initial graph is " + str(self.dynamic_neighbours.nodes))
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         

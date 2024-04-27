@@ -43,15 +43,16 @@ class Household(mesa.Agent):
     def set_home(self, new_home: Building ) -> None:
         new_home.occupied = 1
         self.my_home = new_home
-        self.my_home.household_id = self.unique_id # assign household id to building (so you can lookup household from Building)
+        self.my_home.household_id = self.unique_id # assign household unique_id to building (so you can lookup household from Building)
         self.model.space.occupied.add(self.my_home.unique_id)
 
-    def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage):
+    def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes):
 
         """Calculate the expected utility of the household."""
         sums = savings + property_value + income
-
         flood_damage = damage
+        # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
+        neighbourhood_averages = self.get_neighbourhood_attributes()
 
         # Nothing
         if flood_level < flood_preparedness:
@@ -60,7 +61,7 @@ class Household(mesa.Agent):
             nothing = sums - flood_damage
         
         # Adapt - assuming perfect defence
-        adapt = sums - self.defence_cost()
+        adapt = sums - self.defence_cost() 
         
         # Migrate
         migrate = sums - migration_cost
@@ -72,8 +73,7 @@ class Household(mesa.Agent):
 
     def step(self):
         
-        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate once      
-
+        step_damage = damage(self.my_home.inundation,self.my_home.area)
         neighbourhood_attributes = self.get_neighbourhood_attributes()
 
         # return outcome of expected utility
@@ -83,7 +83,9 @@ class Household(mesa.Agent):
             flood_preparedness=self.my_home.flood_preparedness, 
             property_value=self.my_home.property_value, 
             flood_level=self.my_home.inundation,
-            damage=step_damage)
+            damage=step_damage,
+            neighbourhood_attributes=neighbourhood_attributes
+            )
         
         match utility_case:
             case 'nothing':
@@ -92,47 +94,53 @@ class Household(mesa.Agent):
                     self.my_home.property_value -= step_damage
                 pass
             case 'adapt':
-                self.adapt()
+                self.adapt(self.defence_cost())
             case 'migrate':
-                properties = self.sample_properties()
-                chosen_property = self.evaluate_properties(properties)
+                properties = self.sample_properties(3) # number sampled is a model parameter
+                chosen_property = self.evaluate_properties(properties, neighbourhood_attributes)
                 self.migrate(chosen_property)
 
     def get_neighbourhood_attributes(self):
         
         # NOTE: neighbour network is by building, not the social network of households
         # get list of occupied building nodes connected to household agent
-        neighbours = self.model.dynamic_neighbours.neighbours(self.my_home.unique_id)
-        # calculate average flood preparedness, property value, inundation height
-        fp,pv,ih = 0,0,0
-        
-        buildings = self.model.space._buildings
-        household_ids = []
-        for neighbour_id in neighbours:
-            building = buildings.get(neighbour_id)
-            fp+=building.flood_preparedness
-            pv+=building.property_value
-            ih+=building.inundation
-            household_ids.append(building.household_id) # populate list of household_ids
+        # print(self.model.dynamic_neighbours.nodes)
+        # print(len(self.model.dynamic_neighbours.nodes))
+        neighbours = self.model.dynamic_neighbours.neighbors(self.my_home.unique_id) # look out for American spelling of neighbour for networkx function
 
-        no = len(neighbours) # number of neighbours
+        no = len(list(neighbours)) # number of neighbours
 
-        fp,pv,ih = fp/no,pv/no,ih/no # calculate averages
-           
-        # calculate average of floods experienced and timesteps since last flood
+        if no == 0: # handle no neighbours case
+            return [0,0,0,0,0]
+        else:
+            # calculate average flood preparedness, property value, inundation height
+            fp,pv,ih = 0,0,0
+            
+            buildings = self.model.space._buildings
+            household_ids = []
+            for neighbour_id in neighbours:
+                building = buildings.get(neighbour_id)
+                fp+=building.flood_preparedness
+                pv+=building.property_value
+                ih+=building.inundation
+                household_ids.append(building.household_id) # populate list of household_ids
 
-        fe,tslf = 0,0
+            fp,pv,ih = fp/no,pv/no,ih/no # calculate averages
+            
+            # calculate average of floods experienced and timesteps since last flood
 
-        households = self.model.households
-        for household_id in household_ids:
-             household = self.model.schedule._agents[household_id]
-             fe+=household.floods_experienced
-             tslf+=household.timesteps_since_last_flood
-        # return list of averages: 
-        fe,tslf = fe/no,tslf/no
-        # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
-        # to be accessed by indexing
-        return [fp,pv,ih,fe,tslf]
+            fe,tslf = 0,0
+
+            households = self.model.schedule._agents
+            for household_id in household_ids:
+                household = households[household_id]
+                fe+=household.floods_experienced
+                tslf+=household.timesteps_since_last_flood
+            # return list of averages: 
+            fe,tslf = fe/no,tslf/no
+            # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
+            # to be accessed by indexing
+            return [fp,pv,ih,fe,tslf]
         
 
     def defence_cost(self):
@@ -153,36 +161,35 @@ class Household(mesa.Agent):
 
             new_home_id = random.choice(list(self.model.space.building_ids.difference(self.model.space.occupied))) # if slow, look at https://stackoverflow.com/questions/15993447/python-data-structure-for-efficient-add-remove-and-random-choice
             new_home = self.model.space._buildings.get(new_home_id)
-
             properties[new_home_id] = new_home
 
         return properties
 
-    def evaluate_properties(self, properties: dict):
-
+    def evaluate_properties(self, properties: dict, neighbourhood_attributes):
+        '''
+        Returns the property with the best cost and attributes
+        '''
         # calculates fixed cost and variable migration costs
 
-        current_point = self.my_home.centroid
+        current_point = Point(self.my_home.centroid)
 
-        var_cost = {}
         property_costs = {}
-        cost_per_m = 10
+        cost_per_m = 10 #k£ - variable cost that scales with distances
+        fixed_cost = 20 #k£ - psychological cost of leaving property
 
-        # for each property in sample, calculate the distance away
-        for property_id, property in properties:
+        # for each property in sample, calculate the distance away and the property costs
+        for property_id, property in properties.items():
 
-            property_point = property.centroid         
-            points_df = gpd.GeoDataFrame({'geometry': [current_point, property_point]}, crs='EPSG:4326')
+            property_point = Point(property.centroid)         
+            points_df = gpd.GeoDataFrame({'geometry': [current_point, property_point]},crs='EPSG:4326')
             points_df = points_df.to_crs("EPSG:27700")
-            points_df2 = points_df.shift()
-            dist = points_df.distance(points_df2)
-            # variable cost
-            var_cost[property_id] = dist*cost_per_m
-            property_costs[property_id] = self.model.space._buildings[property_id].property_value
+            dist = points_df.geometry.iloc[0].distance(points_df.geometry.iloc[1])
+            # sum of property_value, variable distance-based cost and fixed cost
+            property_costs[property_id] = self.model.space._buildings[property_id].property_value + dist*cost_per_m + fixed_cost
 
+        min_property_id = min(property_costs, key=property_costs.get)
 
-        # return property_cost
-
+        return properties[min_property_id]
 
     def migrate(self, new_home) -> None:
 
@@ -191,24 +198,26 @@ class Household(mesa.Agent):
         self.model.migration_count += 1
         self.my_home.occupied = 0
 
+        # drop old node from network
+
+        G = self.model.dynamic_neighbours
+        G.remove_node((self.my_home.unique_id))
+
         self.model.space.occupied.remove(self.my_home.unique_id) # remove using building unique_id
         self.set_home(new_home) # set building geoagent as new home
 
-        # drop old node from network
-        G = self.model.dynamic_neighbours
-
-        G.remove_node(str(self.my_home.unique_id))
-
         # update network
-        new_node = str(new_home.unique_id)
-        edges_to_copy = self.model.neighbours_lookup.edges(new_node)
+        new_node = new_home.unique_id
+        edges_to_copy = self.model.neighbours_lookup.edges(new_node) # a list of tuples (new_node, other_node)
+        print("new node is " + str(new_node) + " with nodes to add " + str(edges_to_copy))
 
         for edge in edges_to_copy:
-            # Add the edge only if both endpoints exist in the graph
-            if G.has_node(edge[0]) and G.has_node(edge[1]):
-                if edge[0] == 2:
-                    G.add_edge(new_node, edge[1])
-                else:
-                    G.add_edge(edge[0], new_node)
 
+            # Add the edge only if node exists in graph
+            if G.has_node(edge[1]):
+                G.add_edge(new_node, edge[1])
+                # print("added " + str(edge))
+            else:
+                # print(" didn't add " + str(edge))
 
+        # print("new graph is " + str(G.nodes))
