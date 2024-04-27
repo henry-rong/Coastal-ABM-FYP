@@ -209,7 +209,9 @@ class Household(mesa.Agent):
         # update network
         new_node = new_home.unique_id
         edges_to_copy = self.model.neighbours_lookup.edges(new_node) # a list of tuples (new_node, other_node)
-        print("new node is " + str(new_node) + " with nodes to add " + str(edges_to_copy))
+        # print("new node is " + str(new_node) + " with nodes to add " + str(edges_to_copy))
+
+        G.add_node(new_node) # add node first to handle island case
 
         for edge in edges_to_copy:
 
@@ -217,7 +219,7 @@ class Household(mesa.Agent):
             if G.has_node(edge[1]):
                 G.add_edge(new_node, edge[1])
                 # print("added " + str(edge))
-            else:
+            # else:
                 # print(" didn't add " + str(edge))
 
         # print("new graph is " + str(G.nodes))
