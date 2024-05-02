@@ -23,6 +23,8 @@ return_periods = ['rp0001', 'rp0002', 'rp0005', 'rp0010', 'rp0050', 'rp0100', 'r
 
 depth_fps = dict([(rp, fp(rp)) for rp in return_periods]) # depth filepaths
 
+network_fps = {50:"data/networks/neighbours_50m.graphml"}
+
 def call_flood_level(model):
     return model.space.max_depth
 
@@ -32,19 +34,32 @@ def call_migration_count(model):
 class Population(mesa.Model):
     def __init__(
         self,
+        people_per_household,
+        neighbourhood_radius,
+        initial_flood_experience,
+        initial_flood_preparedness,
+        house_sample_size,
+        fixed_migration_cost,
+        household_adaptation_cost,
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
         world_zip_file="data/clip2.zip", # slightly redundant if preprocessed tif already masked
         building_file = "data/fairbourne_buildings.geojson",
         depth_gzip_file = depth_fps['rp0001'][0], # the initial baseline value in 2010
-        network_file = "neighbours_50m.graphml"
 
     ):
         super().__init__()
-        self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_file)) # static graph to lookup which buildings are connected regardless of occupancy
+
+        self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius])) # static graph to lookup which buildings are connected regardless of occupancy
         self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup) # dynamic graph only showing occupied buildings, indexed with unique_id (matching unique_id of Building geoagents)
         self.step_count = 0
         self.num_agents = 0
+        self.people_per_household = people_per_household
+        self.initial_flood_experience = initial_flood_experience
+        self.initial_flood_preparedness = initial_flood_preparedness
+        self.house_sample_size = house_sample_size
+        self.fixed_migration_cost = fixed_migration_cost
+        self.household_adaptation_cost = household_adaptation_cost
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
         self.space.load_flood_depth(depth_gzip_file,world_zip_file)
@@ -62,7 +77,7 @@ class Population(mesa.Model):
     def _create_households(self):
 
         occupied_houses = set() # get occupied properties
-        household_size = 3.5 # no. of people per household. taken from Tierolf paper
+        household_size = self.people_per_household # no. of people per household. taken from Tierolf paper
         for cell in self.space.population_layer:
             popu_round = math.ceil(cell.population/household_size) # divide person population by household size
             if popu_round > 0: # all non-zero raster cells

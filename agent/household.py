@@ -36,7 +36,7 @@ class Household(mesa.Agent):
         self.my_home = None
         self.income = np.random.normal(30, 10) # £1k, post tax and consumption
         self.savings = np.random.normal(30, 10) # £1k
-        self.floods_experienced = 0 # dependent on timesteps since last flood....
+        self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
         
 
@@ -96,7 +96,7 @@ class Household(mesa.Agent):
             case 'adapt':
                 self.adapt(self.defence_cost())
             case 'migrate':
-                properties = self.sample_properties(3) # number sampled is a model parameter
+                properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
                 chosen_property = self.evaluate_properties(properties, neighbourhood_attributes)
                 self.migrate(chosen_property)
 
@@ -144,7 +144,7 @@ class Household(mesa.Agent):
         
 
     def defence_cost(self):
-        return np.random.normal(10,5) # k£
+        return max(np.random.normal(self.model.household_adaptation_cost,5),1) # k£ - lower bounded at £1k
     
 
     def adapt(self, defence_cost) -> None:
@@ -185,7 +185,7 @@ class Household(mesa.Agent):
             points_df = points_df.to_crs("EPSG:27700")
             dist = points_df.geometry.iloc[0].distance(points_df.geometry.iloc[1])
             # sum of property_value, variable distance-based cost and fixed cost
-            property_costs[property_id] = self.model.space._buildings[property_id].property_value + dist*cost_per_m + fixed_cost
+            property_costs[property_id] = self.model.space._buildings[property_id].property_value + dist*cost_per_m + self.model.fixed_migration_cost
 
         min_property_id = min(property_costs, key=property_costs.get)
 

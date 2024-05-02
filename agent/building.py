@@ -18,10 +18,11 @@ class Building(mg.GeoAgent):
         super().__init__(unique_id=unique_id, model=model, geometry=geometry, crs=crs)
         self.name = str(uuid.uuid4()) # unique_id
         self.occupied = 0 # number of household agents in building. At initialisation, all homes are empty
-        self.flood_preparedness = np.random.normal(0, 0.5) # flood barrier height (m)
+        self.flood_preparedness = self.model.initial_flood_preparedness
         self.inundation = 0  # flood inundation height for that timestep (m)
         self.property_value = np.random.normal(100,50) # amenity value of the location (k£)
         self.household_id = None # owner id for lookup when calculating neighbourhood properties
+        self.household_at_risk = self.inundation > self.flood_preparedness # metric for data collector
 
     def get_raster_value(self):
         self.test = self.model.space.population_layer.get_cell_list_contents(self.centroid)

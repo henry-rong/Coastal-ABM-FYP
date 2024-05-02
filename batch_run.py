@@ -7,7 +7,25 @@ import matplotlib.pyplot as plt
 
 from coastal_model.model import Population
 
-params = {}
+params = {
+    "people_per_household": 3.5,
+    "neighbourhood_radius": 50,
+    "initial_flood_experience": 0,
+    "initial_flood_preparedness": 0,
+    "house_sample_size": 3,
+    "fixed_migration_cost": 50, #k£
+    "household_adaptation_cost": 10 #k£
+          }
+
+# params = {
+#     "people_per_household": range(1,4),
+#     "neighbourhood_radius": range(0,50,10),
+#     "initial_flood_experience": range(0,1),
+#     "initial_flood_preparedness": range(0,1),
+#     "house_sample_size": range(1,5),
+#     "fixed_migration_cost": range(50,100,25), #k£
+#     "household_adaptation_cost": range(1,10) #k£
+#           }
 
 results = mesa.batch_run(
     Population,
