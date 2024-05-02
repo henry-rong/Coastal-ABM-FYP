@@ -38,12 +38,14 @@ class Household(mesa.Agent):
         self.savings = np.random.normal(30, 10) # £1k
         self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
+        self.home_flood_preparedness = 0
         
 
     def set_home(self, new_home: Building ) -> None:
         new_home.occupied = 1
         self.my_home = new_home
         self.my_home.household_id = self.unique_id # assign household unique_id to building (so you can lookup household from Building)
+        self.home_flood_preparedness = self.my_home.flood_preparedness
         self.model.space.occupied.add(self.my_home.unique_id)
 
     def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes):

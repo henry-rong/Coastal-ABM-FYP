@@ -23,7 +23,7 @@ return_periods = ['rp0001', 'rp0002', 'rp0005', 'rp0010', 'rp0050', 'rp0100', 'r
 
 depth_fps = dict([(rp, fp(rp)) for rp in return_periods]) # depth filepaths
 
-network_fps = {50:"data/networks/neighbours_50m.graphml"}
+network_fps = {50:"data/networks/neighbours_50m.graphml",25:"data/networks/neighbours_25m.graphml"}
 
 def call_flood_level(model):
     return model.space.max_depth
@@ -70,7 +70,7 @@ class Population(mesa.Model):
         self.migration_count = 0        
         self.datacollector = mesa.DataCollector(
             model_reporters={"Max Flood Inundation": call_flood_level, "Migration Count": call_migration_count},
-            agent_reporters={"Adaptation":"flood_preparedness"},
+            agent_reporters={"Adaptation":"home_flood_preparedness"},
         )
 
 
@@ -97,7 +97,7 @@ class Population(mesa.Model):
         # nodes_to_remove_str = {str(x) for x in nodes_to_remove} # NOTE: node keys are strings, not ints
         self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove)) # remove from the list
         del self.space.homes # remove homes list (used for random_home) to free from memory after initialisation
-        print("initial graph is " + str(self.dynamic_neighbours.nodes))
+        # print("initial graph is " + str(self.dynamic_neighbours.nodes))
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         

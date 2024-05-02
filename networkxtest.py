@@ -5,6 +5,8 @@ import networkx as nx
 import numpy as np
 import geopandas
 
+distance_band  = 0
+
 # read in example data from a geopackage file. Geopackages
 # are a format for storing geographic data that is backed
 # by sqlite. geopandas reads data relying on the fiona package,
@@ -27,7 +29,7 @@ knn3 = weights.KNN.from_dataframe(buildings, k=3)
 ## The 50-meter distance band graph will connect all pairs of points
 ## that are within 50 meters from one another. This means that points
 ## may have different numbers of neighbors.
-dist = weights.DistanceBand.from_array(coordinates, threshold=50)
+dist = weights.DistanceBand.from_array(coordinates, threshold=distance_band)
 
 # Then, we can convert the graph to networkx object using the
 # .to_networkx() method.
