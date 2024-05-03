@@ -9,7 +9,6 @@ from shapely.geometry import Point
 from agent.building import Building
 import geopandas as gpd
 
-migration_cost = 10 # £1k - needs to change to scale with property value
 
 def damage(level, area):
     if level < 0:
@@ -48,13 +47,18 @@ class Household(mesa.Agent):
         self.home_flood_preparedness = self.my_home.flood_preparedness
         self.model.space.occupied.add(self.my_home.unique_id)
 
-    def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes):
+    def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes, migration_cost):
 
         """Calculate the expected utility of the household."""
         sums = savings + property_value + income
         flood_damage = damage
         # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
-        neighbourhood_averages = self.get_neighbourhood_attributes()
+        
+        n_flood_prep = neighbourhood_attributes[0]
+        n_property_value = neighbourhood_attributes[1]
+        n_inundation_height = neighbourhood_attributes[2]
+        n_floods_experienced = neighbourhood_attributes[3]
+        n_time_since_last_flood = neighbourhood_attributes[4]
 
         # Nothing
         if flood_level < flood_preparedness:
@@ -63,21 +67,26 @@ class Household(mesa.Agent):
             nothing = sums - flood_damage
         
         # Adapt - assuming perfect defence
-        adapt = sums - self.defence_cost() 
+        flood_adaptation_level = max(flood_level,n_inundation_height)
+        adapt = sums - self.defence_cost() + damage
         
         # Migrate
-        migrate = sums - migration_cost
+        migrate = n_floods_experienced*(sums - migration_cost)
 
         utility = {nothing:'nothing', adapt:'adapt', migrate:'migrate'}
 
-        # returns string of the action with the highest utility
-        return utility.get(max(utility))
+        """
+        returns list containing:
+        1. string of the action with the highest utility
+        2. flood adaptation level
+        """
+        return [utility.get(max(utility)), flood_adaptation_level]
 
     def step(self):
         
         step_damage = damage(self.my_home.inundation,self.my_home.area)
         neighbourhood_attributes = self.get_neighbourhood_attributes()
-
+        
         # return outcome of expected utility
         utility_case = self.expected_utility(
             income = self.income, 
@@ -86,21 +95,30 @@ class Household(mesa.Agent):
             property_value=self.my_home.property_value, 
             flood_level=self.my_home.inundation,
             damage=step_damage,
-            neighbourhood_attributes=neighbourhood_attributes
+            neighbourhood_attributes=neighbourhood_attributes,
+            migration_cost = self.model.fixed_migration_cost
             )
-        
-        match utility_case:
+
+        if self.my_home.flood_preparedness < self.my_home.inundation: # if flooded....
+            self.floods_experienced += 1
+            self.timesteps_since_last_flood = 0
+        else:
+            step_damage = 0
+            if self.floods_experienced > 1:
+                self.timesteps_since_last_flood += 1
+
+        match utility_case[0]:
             case 'nothing':
-                # apply damage
-                if self.my_home.flood_preparedness : # flooded
-                    self.my_home.property_value -= step_damage
-                pass
+                self.my_home.property_value -= step_damage
             case 'adapt':
-                self.adapt(self.defence_cost())
+                self.adapt(self.defence_cost(),utility_case[1])
             case 'migrate':
                 properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
-                chosen_property = self.evaluate_properties(properties, neighbourhood_attributes)
-                self.migrate(chosen_property)
+                property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
+                chosen_property_id = property_evaluation[0]
+                self.migrate(chosen_property_id)
+
+        
 
     def get_neighbourhood_attributes(self):
         
@@ -108,6 +126,7 @@ class Household(mesa.Agent):
         # get list of occupied building nodes connected to household agent
         # print(self.model.dynamic_neighbours.nodes)
         # print(len(self.model.dynamic_neighbours.nodes))
+        
         neighbours = self.model.dynamic_neighbours.neighbors(self.my_home.unique_id) # look out for American spelling of neighbour for networkx function
 
         no = len(list(neighbours)) # number of neighbours
@@ -149,8 +168,8 @@ class Household(mesa.Agent):
         return max(np.random.normal(self.model.household_adaptation_cost,5),1) # k£ - lower bounded at £1k
     
 
-    def adapt(self, defence_cost) -> None:
-        self.my_home.flood_preparedness += 0.5
+    def adapt(self, defence_cost, defence_height) -> None:
+        self.my_home.flood_preparedness += defence_height
         self.savings -= defence_cost
 
     def sample_properties(self, num_properties):
@@ -176,8 +195,14 @@ class Household(mesa.Agent):
         current_point = Point(self.my_home.centroid)
 
         property_costs = {}
-        cost_per_m = 10 #k£ - variable cost that scales with distances
-        fixed_cost = 20 #k£ - psychological cost of leaving property
+        cost_per_m = 0.1 #k£ - variable cost that scales with distances
+        # fixed cost in k£ - psychological cost of leaving property
+
+        n_flood_prep = neighbourhood_attributes[0]
+        n_property_value = neighbourhood_attributes[1]
+        n_inundation_height = neighbourhood_attributes[2]
+        n_floods_experienced = neighbourhood_attributes[3]
+        n_time_since_last_flood = neighbourhood_attributes[4]
 
         # for each property in sample, calculate the distance away and the property costs
         for property_id, property in properties.items():
@@ -191,7 +216,7 @@ class Household(mesa.Agent):
 
         min_property_id = min(property_costs, key=property_costs.get)
 
-        return properties[min_property_id]
+        return [properties[min_property_id], property_costs[min_property_id]]
 
     def migrate(self, new_home) -> None:
 

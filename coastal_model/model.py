@@ -23,7 +23,7 @@ return_periods = ['rp0001', 'rp0002', 'rp0005', 'rp0010', 'rp0050', 'rp0100', 'r
 
 depth_fps = dict([(rp, fp(rp)) for rp in return_periods]) # depth filepaths
 
-network_fps = {50:"data/networks/neighbours_50m.graphml",25:"data/networks/neighbours_25m.graphml"}
+network_fps = {50:"data/networks/neighbours_50m.graphml",25:"data/networks/neighbours_25m.graphml",0:"data/networks/neighbours_0m.graphml"}
 
 def call_flood_level(model):
     return model.space.max_depth
@@ -49,7 +49,6 @@ class Population(mesa.Model):
 
     ):
         super().__init__()
-
         self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius])) # static graph to lookup which buildings are connected regardless of occupancy
         self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup) # dynamic graph only showing occupied buildings, indexed with unique_id (matching unique_id of Building geoagents)
         self.step_count = 0
