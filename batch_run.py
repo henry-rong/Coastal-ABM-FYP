@@ -8,7 +8,7 @@ sns.set_theme(font_scale=1, rc={'text.usetex' : True})
 from coastal_model.model import Population
 
 params = {
-    "people_per_household": range(3,5,1),
+    "people_per_household": 3.5,
     "neighbourhood_radius": range(25,75,25),
     "initial_flood_experience": 0,
     "initial_flood_preparedness": 0,
@@ -18,7 +18,7 @@ params = {
           }
 
 # params = {
-#     "people_per_household": range(1,4),
+#     "people_per_household": range(3,5,1),
 #     "neighbourhood_radius": range(0,50,10),
 #     "initial_flood_experience": range(0,1),
 #     "initial_flood_preparedness": range(0,1),
@@ -30,7 +30,7 @@ params = {
 results = mesa.batch_run(
     Population,
     parameters=params,
-    iterations=2,
+    iterations=20,
     max_steps=69,
     number_processes=1,
     data_collection_period=1,
@@ -57,28 +57,28 @@ titles = ["Migration Count from 2010 to 2080","Max Flood Inundation Rise from 20
 ys = ["Migration Count","Max Flood Inundation","Adaptation"]
 data_sources = [migration_results_df,flood_results_df]
 
-plt.figure(0)
+# plt.figure(0)
 
-fig, axes = plt.subplots(2, 1, figsize=(15, 5), sharex=True)
+# fig, axes = plt.subplots(2, 1, figsize=(15, 5), sharex=True)
 
-for i in range(2):  
-    sns.lineplot(data=data_sources[i], ax=axes[i], x="Step", y=ys[i], hue="people_per_household", palette="dark:#5A9_r")
-    axes[i].set(
-        xlabel="Year",
-        ylabel=ylabels[i],
-        title=titles[i],
-    )
+# for i in range(2):  
+#     sns.lineplot(data=data_sources[i], ax=axes[i], x="Step", y=ys[i], hue="people_per_household", palette="dark:#5A9_r")
+#     axes[i].set(
+#         xlabel="Year",
+#         ylabel=ylabels[i],
+#         title=titles[i],
+#     )
 
-plt.figure(1)
+# plt.figure(1)
 
-fig, axes = plt.subplots(figsize=(15, 5))
+# fig, axes = plt.subplots(figsize=(15, 5))
 
-sns.lineplot(data=adaptation_results_df, ax=axes, x="Step", y=ys[2], hue="people_per_household", palette="dark:#5A9_r")
-axes.set(
-    xlabel="Year",
-    ylabel=ylabels[2],
-    title=titles[2]
-)
+# sns.lineplot(data=adaptation_results_df, ax=axes, x="Step", y=ys[2], hue="people_per_household", palette="dark:#5A9_r")
+# axes.set(
+#     xlabel="Year",
+#     ylabel=ylabels[2],
+#     title=titles[2]
+# )
 
 plt.figure(2)
 
