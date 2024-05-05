@@ -38,6 +38,7 @@ class Household(mesa.Agent):
         self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
         self.home_flood_preparedness = 0
+        self.flood_damage = 0
         
 
     def set_home(self, new_home: Building ) -> None:
@@ -47,10 +48,10 @@ class Household(mesa.Agent):
         self.home_flood_preparedness = self.my_home.flood_preparedness
         self.model.space.occupied.add(self.my_home.unique_id)
 
-    def expected_utility(self, income, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes, migration_cost):
+    def expected_utility(self, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes, migration_cost):
 
         """Calculate the expected utility of the household."""
-        sums = savings + property_value + income
+        sums = savings + property_value
         flood_damage = damage
         # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
         
@@ -71,7 +72,7 @@ class Household(mesa.Agent):
         adapt = sums - self.defence_cost() + damage
         
         # Migrate
-        migrate = n_floods_experienced*(sums - migration_cost)
+        migrate = max(n_floods_experienced,self.floods_experienced)*(sums - migration_cost)/min(n_time_since_last_flood,self.timesteps_since_last_flood) # migration is weighted by community and personal experience of flooding
 
         utility = {nothing:'nothing', adapt:'adapt', migrate:'migrate'}
 
@@ -84,12 +85,15 @@ class Household(mesa.Agent):
 
     def step(self):
         
-        step_damage = damage(self.my_home.inundation,self.my_home.area)
+        # apply actions
+
+        self.savings += self.income # agent earns money
+        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate damage
+        self.flood_damage = step_damage # update flood damage to equal what was experienced that year
         neighbourhood_attributes = self.get_neighbourhood_attributes()
         
         # return outcome of expected utility
         utility_case = self.expected_utility(
-            income = self.income, 
             savings= self.savings, 
             flood_preparedness=self.my_home.flood_preparedness, 
             property_value=self.my_home.property_value, 
@@ -101,15 +105,19 @@ class Household(mesa.Agent):
 
         if self.my_home.flood_preparedness < self.my_home.inundation: # if flooded....
             self.floods_experienced += 1
-            self.timesteps_since_last_flood = 0
-        else:
-            step_damage = 0
+            self.timesteps_since_last_flood = 0 # reset time since last flood to 0
+        else: # else if damage was zero
+            step_damage = 0 
             if self.floods_experienced > 1:
-                self.timesteps_since_last_flood += 1
+                self.timesteps_since_last_flood += 1 # add time since last flood
 
         match utility_case[0]:
             case 'nothing':
-                self.my_home.property_value -= step_damage
+
+                if self.savings > step_damage: # if can afford to pay for damages, do so...
+                    self.savings =- step_damage
+                else:
+                    self.my_home.property_value -= step_damage # otherwise, the property value gets damaged
             case 'adapt':
                 self.adapt(self.defence_cost(),utility_case[1])
             case 'migrate':
@@ -127,7 +135,7 @@ class Household(mesa.Agent):
         # print(self.model.dynamic_neighbours.nodes)
         # print(len(self.model.dynamic_neighbours.nodes))
         
-        neighbours = self.model.dynamic_neighbours.neighbors(self.my_home.unique_id) # look out for American spelling of neighbour for networkx function
+        neighbours = self.model.dynamic_neighbours.neighbors(self.my_home.unique_id) # calculate attributes for existing properties NOTE: look out for American spelling of neighbour for networkx function. 
 
         no = len(list(neighbours)) # number of neighbours
 
@@ -176,15 +184,20 @@ class Household(mesa.Agent):
 
         # return property value of new home to migration cost first before comitting - need to inspect attributes of flood prepardness, property value, area / household size ratio
 
-        properties = {}
+        available_buildings = set(self.model.space.building_ids.difference(self.model.space.occupied))
 
-        for property in range(num_properties):
+        # Convert the set to a list for random.sample (if size of set is manageable)
+        if len(available_buildings) <= num_properties:  # Check if set size is smaller or equal to desired sample size
+            sampled_properties = list(available_buildings)  # Convert the entire set to a list
+        else:
+            sampled_properties = random.sample(list(available_buildings), num_properties)  # Sample from the set
 
-            new_home_id = random.choice(list(self.model.space.building_ids.difference(self.model.space.occupied))) # if slow, look at https://stackoverflow.com/questions/15993447/python-data-structure-for-efficient-add-remove-and-random-choice
-            new_home = self.model.space._buildings.get(new_home_id)
-            properties[new_home_id] = new_home
+        # Create a dictionary from sampled IDs and their corresponding buildings
+        properties = {building_id: self.model.space._buildings.get(building_id) for building_id in sampled_properties}
 
         return properties
+
+
 
     def evaluate_properties(self, properties: dict, neighbourhood_attributes):
         '''

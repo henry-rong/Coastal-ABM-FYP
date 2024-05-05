@@ -1,8 +1,8 @@
 import mesa
 import mesa_geo as mg
 from shapely.geometry import Point, Polygon
-from model import Population  # Assuming model.py is in the same directory
-from space import CoastalCell, CoastalArea  # Assuming space.py is in the same directory
+from .model import Population  # Assuming model.py is in the same directory
+from .space import CoastalCell, CoastalArea  # Assuming space.py is in the same directory
 from agent.building import Building
 
 class NumAgentsElement(mesa.visualization.TextElement):
@@ -35,7 +35,15 @@ def agent_portrayal(agent):
                 "weight": 1,
             }
 
-model_params = {}
+model_params = {
+    "people_per_household": 3.5,
+    "neighbourhood_radius": 50,
+    "initial_flood_experience": 0,
+    "initial_flood_preparedness": 0,
+    "house_sample_size": 3,
+    "fixed_migration_cost": 50, #k£
+    "household_adaptation_cost": 10 #k£
+}
 
 geospace_element = mg.visualization.MapModule(agent_portrayal, map_width=700)
 num_agents_element = NumAgentsElement()

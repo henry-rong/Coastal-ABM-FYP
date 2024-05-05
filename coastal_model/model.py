@@ -68,7 +68,7 @@ class Population(mesa.Model):
         self.migration_count = 0        
         self.datacollector = mesa.DataCollector(
             model_reporters={"Max Flood Inundation": call_flood_level, "Migration Count": call_migration_count},
-            agent_reporters={"Adaptation":"home_flood_preparedness"},
+            agent_reporters={"Adaptation":"home_flood_preparedness", "Flood Damage":"flood_damage", "Floods experienced": "floods_experienced"},
         )
 
     def _create_households(self):
