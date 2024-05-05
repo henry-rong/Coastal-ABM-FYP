@@ -68,11 +68,12 @@ class Household(mesa.Agent):
             nothing = sums - flood_damage
         
         # Adapt - assuming perfect defence
+        peer_flood_level = max(n_inundation_height, n_flood_prep) # looking at neighbours, considering the most 
         flood_adaptation_level = max(flood_level,n_inundation_height)
-        adapt = sums - self.defence_cost() + damage
+        adapt = sums - self.defence_cost(flood_adaptation_level) + damage
         
         # Migrate
-        migrate = max(n_floods_experienced,self.floods_experienced)*(sums - migration_cost)/min(n_time_since_last_flood,self.timesteps_since_last_flood) # migration is weighted by community and personal experience of flooding
+        migrate = max(n_floods_experienced,self.floods_experienced)*(sums - migration_cost)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood)) # Migration is weighted by community and personal experience of flooding. Large timesteps reduces the need for migration.
 
         utility = {nothing:'nothing', adapt:'adapt', migrate:'migrate'}
 
@@ -119,7 +120,7 @@ class Household(mesa.Agent):
                 else:
                     self.my_home.property_value -= step_damage # otherwise, the property value gets damaged
             case 'adapt':
-                self.adapt(self.defence_cost(),utility_case[1])
+                self.adapt(self.defence_cost(utility_case[1]),utility_case[1])
             case 'migrate':
                 properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
                 property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
@@ -172,12 +173,12 @@ class Household(mesa.Agent):
             return [fp,pv,ih,fe,tslf]
         
 
-    def defence_cost(self):
-        return max(np.random.normal(self.model.household_adaptation_cost,5),1) # k£ - lower bounded at £1k
+    def defence_cost(self, height):
+        return height*max(np.random.normal(self.model.household_adaptation_cost,5),1) # k£ - lower bounded at £1k
     
 
     def adapt(self, defence_cost, defence_height) -> None:
-        self.my_home.flood_preparedness += defence_height
+        self.my_home.flood_preparedness = defence_height # assuming the height is 
         self.savings -= defence_cost
 
     def sample_properties(self, num_properties):
