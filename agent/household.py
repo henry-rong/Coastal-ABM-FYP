@@ -39,6 +39,9 @@ class Household(mesa.Agent):
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
         self.home_flood_preparedness = 0
         self.flood_damage = 0
+        self.nothing_cost = 0
+        self.adapt_cost = 0
+        self.utility_migrate= 0
         
 
     def set_home(self, new_home: Building ) -> None:
@@ -67,13 +70,19 @@ class Household(mesa.Agent):
         else: # flooded!
             nothing = sums - flood_damage
         
-        # Adapt - assuming perfect defence
-        peer_flood_level = max(n_inundation_height, n_flood_prep) # looking at neighbours, considering the most 
-        flood_adaptation_level = max(flood_level,n_inundation_height)
-        adapt = sums - self.defence_cost(flood_adaptation_level) + damage
-        
+        self.nothing_cost = nothing
+
+        # Adapt - assuming very cautious households
+        peer_adaptation_level = max(n_inundation_height, n_flood_prep) # looking at neighbours, considering the max
+        personal_adaptation_level = max(flood_level,n_inundation_height)
+        max_flood_level = max(peer_adaptation_level,personal_adaptation_level)
+
+        adapt = max(n_floods_experienced,self.floods_experienced,1)*(sums - self.defence_cost(max_flood_level)[0] + damage)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood))
+
+        self.adapt_cost = adapt
         # Migrate
-        migrate = max(n_floods_experienced,self.floods_experienced)*(sums - migration_cost)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood)) # Migration is weighted by community and personal experience of flooding. Large timesteps reduces the need for migration.
+        migrate = max(n_floods_experienced,self.floods_experienced,1)*(sums - migration_cost)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood)) # Migration is weighted by community and personal experience of flooding. Large timesteps reduces the need for migration.
+        self.utility_migrate = migrate
 
         utility = {nothing:'nothing', adapt:'adapt', migrate:'migrate'}
 
@@ -82,7 +91,7 @@ class Household(mesa.Agent):
         1. string of the action with the highest utility
         2. flood adaptation level
         """
-        return [utility.get(max(utility)), flood_adaptation_level]
+        return [utility.get(max(utility)), max_flood_level]
 
     def step(self):
         
@@ -120,7 +129,8 @@ class Household(mesa.Agent):
                 else:
                     self.my_home.property_value -= step_damage # otherwise, the property value gets damaged
             case 'adapt':
-                self.adapt(self.defence_cost(utility_case[1]),utility_case[1])
+                cost = self.defence_cost(utility_case[1])
+                self.adapt(cost[0],cost[1])
             case 'migrate':
                 properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
                 property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
@@ -174,12 +184,31 @@ class Household(mesa.Agent):
         
 
     def defence_cost(self, height):
-        return height*max(np.random.normal(self.model.household_adaptation_cost,5),1) # k£ - lower bounded at £1k
-    
+        length_of_wall = self.my_home.length
+
+        # all costs in k£
+        if height < 1.2:
+            cost = length_of_wall*1.4
+            wall_height = 1.2
+        elif 1.2 < height < 2.1:
+            cost = length_of_wall*2.9
+            wall_height = 2.1
+        elif 2.1 < height < 5.3:
+            cost = length_of_wall*3.6
+            wall_height = 5.3
+        else:
+            cost = length_of_wall*11.2
+            wall_height = height
+        
+        # based on https://assets.publishing.service.gov.uk/media/6034ed2ed3bf7f264f23eb51/Cost_estimation_for_fluvial_defences.pdf, table 1.1
+
+        return [cost, wall_height]
+
 
     def adapt(self, defence_cost, defence_height) -> None:
-        self.my_home.flood_preparedness = defence_height # assuming the height is 
         self.savings -= defence_cost
+        self.my_home.flood_preparedness = defence_height # assuming the height is 
+        
 
     def sample_properties(self, num_properties):
 

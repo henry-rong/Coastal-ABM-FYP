@@ -68,8 +68,15 @@ class Population(mesa.Model):
         self.migration_count = 0        
         self.datacollector = mesa.DataCollector(
             model_reporters={"Max Flood Inundation": call_flood_level, "Migration Count": call_migration_count},
-            agent_reporters={"Adaptation":"home_flood_preparedness", "Flood Damage":"flood_damage", "Floods experienced": "floods_experienced"},
-        )
+            agent_reporters={
+                "Adaptation":"home_flood_preparedness",
+             "Flood Damage":"flood_damage",
+              "Floods experienced": "floods_experienced",
+              "Nothing Cost":"nothing_cost",
+              "Adapt Cost":"adapt_cost",
+              "Migrate Cost":"utility_migrate",
+              "Savings":"savings"
+              },)
 
     def _create_households(self):
         occupied_houses = set()
@@ -97,6 +104,7 @@ class Population(mesa.Model):
         buildings_df = buildings_df.set_crs(self.space.crs, allow_override=True).to_crs(crs)
         buildings_df["centroid"] = list(zip(buildings_df.centroid.x, buildings_df.centroid.y))
         buildings_df["area"] = np.floor(buildings_df.geometry.to_crs("EPSG:27700").area)
+        buildings_df["length"] = np.floor(buildings_df.geometry.to_crs("EPSG:27700").length)
         building_creator = mg.AgentCreator(Building, model=self)
         buildings = building_creator.from_GeoDataFrame(buildings_df)
         self.space.add_buildings(buildings)

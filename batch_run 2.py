@@ -3,10 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman"],  # Specify your preferred font here
-})
+# sns.set_theme(font_scale=1, rc={'text.usetex' : True})
 from coastal_model.model import Population  # Assuming coastal_model is the package containing your Population model
 import os
 
@@ -15,7 +12,7 @@ os.chdir(current_directory)
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-no_of_neighbours = 50
+no_of_neighbours = 25
 
 csv_file_path = f"..\\coastal_csvs\\results_{no_of_neighbours}_{timestamp}.csv"
 
