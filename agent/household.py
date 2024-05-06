@@ -33,7 +33,7 @@ class Household(mesa.Agent):
 
         # Randomise income, consumption, and savings
         self.my_home = None
-        self.income = np.random.normal(30, 10) # £1k, post tax and consumption
+        self.income = np.random.normal(32, 10) # £1k, disposable
         self.savings = np.random.normal(30, 10) # £1k
         self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
@@ -102,6 +102,11 @@ class Household(mesa.Agent):
         self.flood_damage = step_damage # update flood damage to equal what was experienced that year
         neighbourhood_attributes = self.get_neighbourhood_attributes()
         
+        # sample properties
+        properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
+        property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
+        chosen_property_id = property_evaluation[0]
+
         # return outcome of expected utility
         utility_case = self.expected_utility(
             savings= self.savings, 
@@ -132,9 +137,6 @@ class Household(mesa.Agent):
                 cost = self.defence_cost(utility_case[1])
                 self.adapt(cost[0],cost[1])
             case 'migrate':
-                properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
-                property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
-                chosen_property_id = property_evaluation[0]
                 self.migrate(chosen_property_id)
 
         
@@ -239,7 +241,7 @@ class Household(mesa.Agent):
 
         property_costs = {}
         cost_per_m = 0.1 #k£ - variable cost that scales with distances
-        # fixed cost in k£ - psychological cost of leaving property
+        # fixed_migration_cost in k£ - psychological cost of leaving current property
 
         n_flood_prep = neighbourhood_attributes[0]
         n_property_value = neighbourhood_attributes[1]
@@ -257,6 +259,7 @@ class Household(mesa.Agent):
             # sum of property_value, variable distance-based cost and fixed cost
             property_costs[property_id] = self.model.space._buildings[property_id].property_value + dist*cost_per_m + self.model.fixed_migration_cost
 
+        # take the property with minimum costs
         min_property_id = min(property_costs, key=property_costs.get)
 
         return [properties[min_property_id], property_costs[min_property_id]]

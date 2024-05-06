@@ -57,20 +57,20 @@ flood_dmg_results_df = results_filtered.groupby(["iteration","Step","neighbourho
 flood_dmg_results_df.to_csv(f"..\\coastal_csvs\\damage_results_{no_of_neighbours}_{timestamp}.csv", index=False)
 flood_exp_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Floods experienced":"mean"}).reset_index()
 flood_exp_results_df.to_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-cost_nothing_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Nothing Cost":"mean"}).reset_index()
-cost_nothing_results_df.to_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-cost_adapt_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Adapt Cost":"mean"}).reset_index()
-cost_adapt_results_df.to_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-cost_migrate_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Migrate Cost":"mean"}).reset_index()
-cost_migrate_results_df.to_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
+utility_nothing_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Nothing utility":"mean"}).reset_index()
+utility_nothing_results_df.to_csv(f"..\\coastal_csvs\\utility_nothing_results_{no_of_neighbours}_{timestamp}.csv", index=False)
+utility_adapt_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Adapt utility":"mean"}).reset_index()
+utility_adapt_results_df.to_csv(f"..\\coastal_csvs\\utility_adapt_results_{no_of_neighbours}_{timestamp}.csv", index=False)
+utility_migrate_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Migrate utility":"mean"}).reset_index()
+utility_migrate_results_df.to_csv(f"..\\coastal_csvs\\utility_migrate_results_{no_of_neighbours}_{timestamp}.csv", index=False)
 saving_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_radius"]).agg({"Savings":"mean"}).reset_index()
-saving_results_df.to_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
+saving_results_df.to_csv(f"..\\coastal_csvs\\savings_results_{no_of_neighbours}_{timestamp}.csv", index=False)
 
 
-ylabels = ["Migration Count (moves)", "Max Flood Inundation (m)", "Average flood defence height (m)","Average damage (£)","Number of households experiencing flooding","Cost of nothing","Cost of adapt","Cost of migration","Savings"]
-titles = ["Migration Count from 2010 to 2080", "Max Flood Inundation Rise from 2010 to 2080", "Flood Adaptation Change from 2010 to 2080","Average flood depth damage per year from 2010 to 2080","Average flood experience count per year from 2010 to 2080","Cost of nothing","Cost of adapt","Cost of migration","Savings"]
-ys = ["Migration Count", "Max Flood Inundation", "Adaptation","Flood Damage","Floods experienced","Nothing Cost","Adapt Cost","Migrate Cost","Savings"]
-data_sources = [migration_results_df, flood_results_df, adaptation_results_df,flood_dmg_results_df,flood_exp_results_df,cost_nothing_results_df,cost_adapt_results_df,cost_migrate_results_df,saving_results_df]
+ylabels = ["Migration Count (moves)", "Max Flood Inundation (m)", "Average flood defence height (m)","Average damage (£)","Number of households experiencing flooding","utility of nothing","utility of adapt","utility of migration","Savings"]
+titles = ["Migration Count from 2010 to 2080", "Max Flood Inundation Rise from 2010 to 2080", "Flood Adaptation Change from 2010 to 2080","Average flood depth damage per year from 2010 to 2080","Average flood experience count per year from 2010 to 2080","utility of nothing","utility of adapt","utility of migration","Savings"]
+ys = ["Migration Count", "Max Flood Inundation", "Adaptation","Flood Damage","Floods experienced","Nothing utility","Adapt utility","Migrate utility","Savings"]
+data_sources = [migration_results_df, flood_results_df, adaptation_results_df,flood_dmg_results_df,flood_exp_results_df,utility_nothing_results_df,utility_adapt_results_df,utility_migrate_results_df,saving_results_df]
 
 for i in range(len(data_sources)): 
 
@@ -86,4 +86,5 @@ for i in range(len(data_sources)):
 
 
 plt.show()
+
 
