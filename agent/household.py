@@ -32,11 +32,11 @@ class Household(mesa.Agent):
         super().__init__(unique_id, model)
 
         # Randomise income, consumption, and savings
-        self.my_home = None
         self.income = np.random.normal(30, 10) # £1k, post tax and consumption
         self.savings = np.random.normal(30, 10) # £1k
         self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
+        self.my_home = None
         self.home_flood_preparedness = 0
         
 

@@ -5,7 +5,7 @@ import networkx as nx
 import numpy as np
 import geopandas
 
-distance_band  = 0
+distance_band  = 50
 
 # read in example data from a geopackage file. Geopackages
 # are a format for storing geographic data that is backed
@@ -101,4 +101,4 @@ positions = dict(zip(knn_graph.nodes, coordinates))
 # gdf = gdf.to_crs(new_crs)
 #original_coordinates = np.column_stack((gdf.x,gdf.y))
 
-nx.write_graphml(dist_graph, "neighbours_50m.graphml")
+nx.write_graphml(dist_graph, f"neighbours_{distance_band}m.graphml")

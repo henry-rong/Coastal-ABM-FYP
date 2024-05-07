@@ -1,5 +1,6 @@
 import osmnx as ox
 import geopandas as gpd
+import matplotlib.pyplot as plt
 import pyogrio
 gpd.options.io_engine = "pyogrio" # need to use this engine instead of fiona to avoid write error due to list
 
@@ -15,7 +16,15 @@ tags = {'building': True, 'residential': ['urban','rural','detached','duplex','i
 
 # buildings = ox.features_from_bbox(box_bounds[3],box_bounds[1],box_bounds[0],box_bounds[2], tags)
 buildings = ox.features_from_bbox(bbox=(north,south,east,west), tags=tags)
-buildings.head()
-buildings.plot(figsize = (100,100))
+print(buildings.shape)
+empty_geom_indices = buildings[buildings.geometry.area == 0].index
+# Drop rows with empty geometries
+buildings = buildings.drop(empty_geom_indices)
+buildings = buildings[['geometry','layer','type']]
 
-# buildings.to_file("./data/fairbourne_buildings.geojson",driver='GeoJSON')
+print(buildings.shape)
+print(buildings.head)
+buildings.plot(figsize = (5,8))
+buildings.to_file("./data/fairbourne_buildings.geojson",driver='GeoJSON')
+
+plt.show()
