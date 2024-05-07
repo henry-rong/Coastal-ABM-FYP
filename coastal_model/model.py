@@ -79,19 +79,22 @@ class CoastalModel(mesa.Model):
     def _create_households(self):
         occupied_houses = set()
         household_size = self.people_per_household
-        for cell in self.space.population_layer:
-            popu_round = math.ceil(cell.population/household_size)
-            if popu_round > 0:
-                for _ in range(popu_round):
-                    self.num_agents += 1
-                    random_home = self.space.get_random_home()
-                    occupied_houses.add(random_home.unique_id)
-                    household = Household(
-                        unique_id=uuid.uuid4().int,
-                        model=self,
-                    )
-                    household.set_home(random_home)
-                    self.schedule.add(household)
+        # for cell in self.space.population_layer:
+        #     popu_round = math.ceil(cell.population/household_size)
+        #     if popu_round > 0:
+        households = 1,146 + 383 # CENSUS 2011 Data for Barmouth and Fairbourne
+        household_sizes = [1 for x in range(525 + 165)] + []
+
+        for _ in range(households):
+            self.num_agents += 1
+            random_home = self.space.get_random_home()
+            occupied_houses.add(random_home.unique_id)
+            household = Household(
+                unique_id=uuid.uuid4().int,
+                model=self,
+            )
+            household.set_home(random_home)
+            self.schedule.add(household)
 
         nodes_to_remove = self.space.building_ids.difference(occupied_houses)
         self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove))

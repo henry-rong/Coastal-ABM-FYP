@@ -35,6 +35,7 @@ class Household(mesa.Agent):
         super().__init__(unique_id, model)
 
         # Randomise income, consumption, and savings
+        self.household_size = 0
         self.my_home = None
         self.income = np.random.normal(32, 10) # £1k, disposable
         self.savings = np.random.normal(30, 10) # £1k
