@@ -1,16 +1,11 @@
-import mesa
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
-from multiprocessing import freeze_support
-sns.set_style("whitegrid")
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman"],  # Specify your preferred font here
-})
 from coastal_model.model import CoastalModel
 import os
+from mesa.batchrunner import batch_run
+from multiprocessing import freeze_support, Pool
 
 current_directory = os.getcwd()
 os.chdir(current_directory)
@@ -40,21 +35,19 @@ params = {
 #     "fixed_migration_cost": range(5,15,5), #k£
 # }
 
-results = mesa.batch_run(
+if __name__ == '__main__':
+    freeze_support()
+    results = batch_run(
     CoastalModel,
     parameters=params,
     iterations=2,
     max_steps=69,
-    number_processes=1,
+    number_processes=None,
     data_collection_period=1,
     display_progress=True,
-)
+    )
 
-
-
-
-
-results_df = pd.DataFrame(results)
+    results_df = pd.DataFrame(results)
 print(results_df.keys())
 
 results_filtered = results_df
