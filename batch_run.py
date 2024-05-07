@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
+sns.set_style("whitegrid")
 plt.rcParams.update({
     "font.family": "serif",
     "font.serif": ["Times New Roman"],  # Specify your preferred font here
@@ -15,18 +16,18 @@ os.chdir(current_directory)
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-no_of_neighbours = 50
+no_of_neighbours = 0
 
 csv_file_path = f"..\\coastal_csvs\\results_{no_of_neighbours}_{timestamp}.csv"
 
 params = {
-    "people_per_household": 3.5,
-    "neighbourhood_radius": no_of_neighbours,
-    "initial_flood_experience": 0,
-    "initial_flood_preparedness": 3, # the return period protection standard at 2010, ranging with all 9 
-    "house_sample_size": 3,
-    "fixed_migration_cost": 50, #k£
-    "household_adaptation_cost": 10 #k£
+    "neighbourhood_radius": range(0,75,25),
+    "initial_flood_experience": range(2),
+    "initial_flood_preparedness": range(0,4), # the return period protection standard at 2010, ranging with all 9 
+    "house_sample_size": range(1,4),
+    "savings_mean": range(25,100,25),
+    "income_mean": range(20,50,10),
+    "fixed_migration_cost": range(5,15,5), #k£
 }
 
 results = mesa.batch_run(
@@ -70,23 +71,29 @@ saving_results_df = results_filtered.groupby(["iteration","Step","neighbourhood_
 saving_results_df.to_csv(f"..\\coastal_csvs\\savings_results_{no_of_neighbours}_{timestamp}.csv", index=False)
 
 
-ylabels = ["Migration Count (moves)", "Max Flood Inundation (m)", "Average flood defence height (m)","Average damage (£)","Number of households experiencing flooding","Utility of nothing","Utility of adapt","Utility of migration","Savings"]
+ylabels = ["Migration Count (moves)", "Max Flood Inundation (m)", "Average flood defence height (m)","Average damage (k£)","Number of households experiencing flooding","Utility of nothing","Utility of adapt","Utility of migration","Savings"]
 titles = ["Migration Count from 2010 to 2080", "Max Flood Inundation Rise from 2010 to 2080", "Flood Adaptation Change from 2010 to 2080","Average flood depth damage per year from 2010 to 2080","Average flood experience count per year from 2010 to 2080","Utility of nothing","Utility of adapt","Utility of migration","Savings"]
 ys = ["Migration Count", "Max Flood Inundation", "Adaptation","Flood Damage","Floods experienced","Nothing Utility","Adapt Utility","Migrate Utility","Savings"]
 data_sources = [migration_results_df, flood_results_df, adaptation_results_df,flood_dmg_results_df,flood_exp_results_df,utility_nothing_results_df,utility_adapt_results_df,utility_migrate_results_df,saving_results_df]
+hues = ["neighbourhood_radius","initial_flood_experience","initial_flood_preparedness","house_sample_size","fixed_migration_cost","household_adaptation_cost"]
 
-for i in range(len(data_sources)): 
+for h in range(len(hues)):
 
-    plt.figure(i)
-    fig, axes = plt.subplots(figsize=(7, 5))
- 
-    sns.lineplot(data=data_sources[i], ax=axes, x="Step", y=ys[i], hue="neighbourhood_radius", palette="dark:#5A9_r")
-    axes.set(
-        xlabel="Year",
-        ylabel=ylabels[i],
-        title=titles[i],
-    )
+    for i in range(len(data_sources)): 
+
+        plt.figure(i + len(data_sources)*h)
+        fig, axes = plt.subplots(figsize=(7, 5))
+    
+        sns.lineplot(data=data_sources[i], ax=axes, x="Step", y=ys[i], hue="neighbourhood_radius",palette="dark")
+        axes.set(
+            xlabel="Year",
+            ylabel=ylabels[i],
+            title=titles[i],
+        )
+        plt.legend(title=hues[i], loc="lower right")
+        plt.tight_layout()
+        plt.savefig(f"..\\coastal_pngs\\plot_{ys[i]}_{timestamp}.png")
 
 
-plt.show()
+    plt.show()
 

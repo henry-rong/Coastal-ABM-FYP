@@ -34,28 +34,36 @@ def call_migration_count(model):
 class CoastalModel(mesa.Model):
     def __init__(
         self,
-        people_per_household,
+        # parameters
         neighbourhood_radius,
         initial_flood_experience,
         initial_flood_preparedness,
         house_sample_size,
+        savings_mean,
+        income_mean,
         fixed_migration_cost,
-        household_adaptation_cost,
+        # geospatial data
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
         world_zip_file="data/clip2.zip", # slightly redundant if preprocessed tif already masked
         building_file = "data/fairbourne_buildings.geojson"
     ):
         super().__init__()
-        self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius]))
-        self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup)
+        # Counters
         self.step_count = 0
         self.num_agents = 0
-        self.people_per_household = people_per_household
+        self.migration_count = 0  
+        # NetworkX graphs
+        self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius]))
+        self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup)
+        # Perception factors
         self.initial_flood_experience = initial_flood_experience
         self.house_sample_size = house_sample_size
+        # Cost factors
+        self.savings_mean = savings_mean
+        self.income_mean = income_mean
         self.fixed_migration_cost = fixed_migration_cost
-        self.household_adaptation_cost = household_adaptation_cost
+        # Load space
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
         self.space.load_flood_depth(depth_fps[return_periods[initial_flood_preparedness]][0], world_zip_file)
@@ -63,7 +71,7 @@ class CoastalModel(mesa.Model):
         self.space.initial_rasters()
         self.schedule = mesa.time.RandomActivation(self)
         self._create_households()
-        self.migration_count = 0        
+              
         self.datacollector = mesa.DataCollector(
             model_reporters={"Max Flood Inundation": call_flood_level, "Migration Count": call_migration_count},
             agent_reporters={
@@ -78,20 +86,34 @@ class CoastalModel(mesa.Model):
 
     def _create_households(self):
         occupied_houses = set()
-        household_size = self.people_per_household
-        # for cell in self.space.population_layer:
-        #     popu_round = math.ceil(cell.population/household_size)
-        #     if popu_round > 0:
-        households = 1,146 + 383 # CENSUS 2011 Data for Barmouth and Fairbourne
-        household_sizes = [1 for x in range(525 + 165)] + []
-
-        for _ in range(households):
+        OSM_households = 1154 # number of buildings extracted from OSM
+        Census_households = 506 + 1341
+        Census_fairbourne = 383 # households with usual residents
+        Census_barmouth = 1146 # households with usual residents
+        OSM_fairbourne = math.floor(Census_fairbourne*OSM_households/Census_households) # occupied proportion
+        OSM_barmouth = math.floor(Census_barmouth*OSM_households/Census_households)
+        OSM_single = math.floor(165/Census_fairbourne*OSM_fairbourne + 572/Census_barmouth*OSM_barmouth) # 'census_single_fairbourne'
+        household_sizes = [1 for x in range(OSM_single)] + [3 for x in range(OSM_barmouth + OSM_fairbourne - OSM_single)] # individual and families
+        age_means = [22,27,37,52,62,69,79,87,90] # mean of Census age bins
+        age_ps = [0.0625,0.0625,0.1875,0.25,0.1125,0.1625,0.1125,0.025,0.025] # associated propabilities for both Fairbourne and Barmouth in 2011
+        age_means_full = [2,6,8,12,15,16,18,22,27,37,52,62,69,79,87,90]
+        age_ps_full = [0.06,0.03,0.02,0.04,0.01,0.02, 0.02,0.05,0.05,0.15,0.2,0.09,0.13,0.09,0.02,0.02]
+        
+        for _ in range(len(household_sizes)):
             self.num_agents += 1
             random_home = self.space.get_random_home()
             occupied_houses.add(random_home.unique_id)
+            sampled_ages = []
+            sampled_ages.append(np.random.choice(age_means,p=age_ps))
+            if household_sizes[_] > 1:
+                for people in range(1,household_sizes[_]):
+                    sampled_ages.append(np.random.choice(age_means,p=age_ps))
+                
             household = Household(
                 unique_id=uuid.uuid4().int,
                 model=self,
+                household_size= household_sizes[_],
+                ages = np.array(sampled_ages)
             )
             household.set_home(random_home)
             self.schedule.add(household)

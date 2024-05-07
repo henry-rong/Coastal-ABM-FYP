@@ -10,6 +10,19 @@ from agent.building import Building
 import geopandas as gpd
 
 
+def death_function(input_age):
+    
+    if input_age < 87:
+        life_p = 1
+    elif input_age > 100:
+        life_p = 0 # no centenarians sorry
+    else:
+        
+        life_p = 0.00265277*input_age**2 -  0.543874*input_age + 27.8909 # polynomial
+    np.random.choice([1,0],p=[1-life_p,life_p]) # death = 1, life = 0
+
+
+
 def depth_damage_calculation(level, area):
 
     euro_to_pound = 0.86
@@ -20,9 +33,9 @@ def depth_damage_calculation(level, area):
     elif (level < 5.363): #
         cost_per_m2 =  -0.0338*level**2 + 0.3626*level
         # need to do pound to euro conversion with time - state as limitation
-        return cost_per_m2 * area *euro_to_pound / 1000 # in k£
+        return cost_per_m2 * area *euro_to_pound # in k£
     else:
-        return area/1000 # in k£
+        return area # in k£
     
 
 class Household(mesa.Agent):
@@ -31,14 +44,15 @@ class Household(mesa.Agent):
     my_home: Building
 
 
-    def __init__(self, unique_id, model):
+    def __init__(self, unique_id, model, household_size,ages):
         super().__init__(unique_id, model)
 
         # Randomise income, consumption, and savings
-        self.household_size = 0
+        self.household_size = household_size
+        self.ages = np.array(ages)
         self.my_home = None
-        self.income = np.random.normal(32, 10) # £1k, disposable
-        self.savings = np.random.normal(30, 10) # £1k
+        self.savings =  np.count_nonzero(np.logical_and(ages > 18, ages < 66))*np.random.normal(self.model.savings_mean, 10) # £1k. multiply with all ages between graduation and retirement
+        self.income = np.count_nonzero(np.logical_and(ages > 18, ages < 66))*np.random.normal(self.model.income_mean, 10) # £1k, disposable. multiply with all ages between graduation and retirement
         self.floods_experienced = self.model.initial_flood_experience # dependent on timesteps since last flood....
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
         self.home_flood_preparedness = 0
@@ -102,6 +116,15 @@ class Household(mesa.Agent):
     def step(self):
         
         # apply actions
+        self.ages += 1 # all occupants age
+        self.ages = np.array([i_age for i_age in self.ages if not death_function(i_age)]) # average of life expectancies 79 and 83
+        self.household_size = len(self.ages)
+        if self.household_size <= 0: # handle case no individuals left in property - return to options
+            self.my_home.occupied = 0
+            G = self.model.dynamic_neighbours
+            G.remove_node((self.my_home.unique_id))
+            self.model.space.occupied.remove(self.my_home.unique_id) # remove using building unique_id
+        
 
         self.savings += self.income # agent earns money
         step_damage = depth_damage_calculation(self.my_home.inundation,self.my_home.area) # calculate damage
