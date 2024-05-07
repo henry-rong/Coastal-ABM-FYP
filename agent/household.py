@@ -10,16 +10,19 @@ from agent.building import Building
 import geopandas as gpd
 
 
-def damage(level, area):
+def depth_damage_calculation(level, area):
+
+    euro_to_pound = 0.86
+
     if level < 0:
         return 0
     
     elif (level < 5.363): #
         cost_per_m2 =  -0.0338*level**2 + 0.3626*level
         # need to do pound to euro conversion with time - state as limitation
-        return cost_per_m2 * area
+        return cost_per_m2 * area *euro_to_pound / 1000 # in k£
     else:
-        return area
+        return area/1000 # in k£
     
 
 class Household(mesa.Agent):
@@ -39,9 +42,9 @@ class Household(mesa.Agent):
         self.timesteps_since_last_flood = 0 # parameter to randomly initialise
         self.home_flood_preparedness = 0
         self.flood_damage = 0
-        self.nothing_cost = 0
-        self.adapt_cost = 0
-        self.utility_migrate= 0
+        self.nothing_utility = 0
+        self.adapt_utility = 0
+        self.migrate_utility= 0
         
 
     def set_home(self, new_home: Building ) -> None:
@@ -51,11 +54,11 @@ class Household(mesa.Agent):
         self.home_flood_preparedness = self.my_home.flood_preparedness
         self.model.space.occupied.add(self.my_home.unique_id)
 
-    def expected_utility(self, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes, migration_cost):
+    def expected_utility(self, savings, flood_preparedness, property_value, flood_level, damage, neighbourhood_attributes, destination, migration_cost):
 
         """Calculate the expected utility of the household."""
         sums = savings + property_value
-        flood_damage = damage
+        property_flood_damage = damage
         # [flood prepardness, property value, inundation height, floods experienced, time since last flood]
         
         n_flood_prep = neighbourhood_attributes[0]
@@ -68,28 +71,30 @@ class Household(mesa.Agent):
         if flood_level < flood_preparedness:
             nothing = sums
         else: # flooded!
-            nothing = sums - flood_damage
+            nothing = sums - property_flood_damage
         
-        self.nothing_cost = nothing
+        self.nothing_utility = nothing
+
+        discounting_factor = max(n_floods_experienced,self.floods_experienced,1)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood))
 
         # Adapt - assuming very cautious households
         peer_adaptation_level = max(n_inundation_height, n_flood_prep) # looking at neighbours, considering the max
         personal_adaptation_level = max(flood_level,n_inundation_height)
         max_flood_level = max(peer_adaptation_level,personal_adaptation_level)
+        
+        adapt = discounting_factor*(sums - self.defence_cost(max_flood_level)[0] + property_flood_damage)
+        self.adapt_utility = adapt
 
-        adapt = max(n_floods_experienced,self.floods_experienced,1)*(sums - self.defence_cost(max_flood_level)[0] + damage)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood))
-
-        self.adapt_cost = adapt
         # Migrate
-        migrate = max(n_floods_experienced,self.floods_experienced,1)*(sums - migration_cost)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood)) # Migration is weighted by community and personal experience of flooding. Large timesteps reduces the need for migration.
-        self.utility_migrate = migrate
+        migrate = discounting_factor*(sums - migration_cost - destination.property_value + depth_damage_calculation(destination.inundation,destination.area))
+        self.migrate_utility = migrate
 
         utility = {nothing:'nothing', adapt:'adapt', migrate:'migrate'}
 
         """
         returns list containing:
         1. string of the action with the highest utility
-        2. flood adaptation level
+        2. perceived flood adaptation level required
         """
         return [utility.get(max(utility)), max_flood_level]
 
@@ -98,14 +103,14 @@ class Household(mesa.Agent):
         # apply actions
 
         self.savings += self.income # agent earns money
-        step_damage = damage(self.my_home.inundation,self.my_home.area) # calculate damage
+        step_damage = depth_damage_calculation(self.my_home.inundation,self.my_home.area) # calculate damage
         self.flood_damage = step_damage # update flood damage to equal what was experienced that year
         neighbourhood_attributes = self.get_neighbourhood_attributes()
         
         # sample properties
         properties = self.sample_properties(self.model.house_sample_size) # number sampled is a model parameter
         property_evaluation = self.evaluate_properties(properties, neighbourhood_attributes)
-        chosen_property_id = property_evaluation[0]
+        chosen_property = property_evaluation[0] # Building
 
         # return outcome of expected utility
         utility_case = self.expected_utility(
@@ -115,7 +120,8 @@ class Household(mesa.Agent):
             flood_level=self.my_home.inundation,
             damage=step_damage,
             neighbourhood_attributes=neighbourhood_attributes,
-            migration_cost = self.model.fixed_migration_cost
+            destination=chosen_property,
+            migration_cost = property_evaluation[1]
             )
 
         if self.my_home.flood_preparedness < self.my_home.inundation: # if flooded....
@@ -134,10 +140,10 @@ class Household(mesa.Agent):
                 else:
                     self.my_home.property_value -= step_damage # otherwise, the property value gets damaged
             case 'adapt':
-                cost = self.defence_cost(utility_case[1])
-                self.adapt(cost[0],cost[1])
+                cost = self.defence_cost(utility_case[1]) # calculates cost of defence
+                self.adapt(cost[0],cost[1]) # 
             case 'migrate':
-                self.migrate(chosen_property_id)
+                self.migrate(chosen_property)
 
         
 
@@ -228,7 +234,6 @@ class Household(mesa.Agent):
         properties = {building_id: self.model.space._buildings.get(building_id) for building_id in sampled_properties}
 
         return properties
-
 
 
     def evaluate_properties(self, properties: dict, neighbourhood_attributes):

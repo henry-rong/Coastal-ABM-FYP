@@ -18,7 +18,7 @@ class Building(mg.GeoAgent):
         super().__init__(unique_id=unique_id, model=model, geometry=geometry, crs=crs)
         self.name = str(uuid.uuid4()) # unique_id
         self.occupied = 0 # number of household agents in building. At initialisation, all homes are empty
-        self.flood_preparedness = self.model.initial_flood_preparedness
+        self.flood_preparedness = 0 # flood defence (m) to withstand inundation
         self.inundation = 0  # flood inundation height for that timestep (m)
         self.property_value = np.random.normal(100,50) # amenity value of the location (k£)
         self.household_id = None # owner id for lookup when calculating neighbourhood properties

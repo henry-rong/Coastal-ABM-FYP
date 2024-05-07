@@ -31,7 +31,7 @@ def call_flood_level(model):
 def call_migration_count(model):
     return model.migration_count
 
-class Population(mesa.Model):
+class CoastalModel(mesa.Model):
     def __init__(
         self,
         people_per_household,
@@ -44,8 +44,7 @@ class Population(mesa.Model):
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
         world_zip_file="data/clip2.zip", # slightly redundant if preprocessed tif already masked
-        building_file = "data/fairbourne_buildings.geojson",
-        depth_gzip_file = depth_fps['rp0001'][0], # the initial baseline value in 2010
+        building_file = "data/fairbourne_buildings.geojson"
     ):
         super().__init__()
         self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius]))
@@ -54,15 +53,14 @@ class Population(mesa.Model):
         self.num_agents = 0
         self.people_per_household = people_per_household
         self.initial_flood_experience = initial_flood_experience
-        self.initial_flood_preparedness = initial_flood_preparedness
         self.house_sample_size = house_sample_size
         self.fixed_migration_cost = fixed_migration_cost
         self.household_adaptation_cost = household_adaptation_cost
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
-        self.space.load_flood_depth(depth_gzip_file, world_zip_file)
+        self.space.load_flood_depth(depth_fps[return_periods[initial_flood_preparedness]][0], world_zip_file)
         self._load_building_from_file(building_file, crs=self.space.crs)
-        self.space.read_rasters()
+        self.space.initial_rasters()
         self.schedule = mesa.time.RandomActivation(self)
         self._create_households()
         self.migration_count = 0        
@@ -72,9 +70,9 @@ class Population(mesa.Model):
                 "Adaptation":"home_flood_preparedness",
              "Flood Damage":"flood_damage",
               "Floods experienced": "floods_experienced",
-              "Nothing Cost":"nothing_cost",
-              "Adapt Cost":"adapt_cost",
-              "Migrate Cost":"utility_migrate",
+              "Nothing Utility":"nothing_utility",
+              "Adapt Utility":"adapt_utility",
+              "Migrate Utility":"migrate_utility",
               "Savings":"savings"
               },)
 

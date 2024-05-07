@@ -96,6 +96,20 @@ class CoastalArea(GeoSpace):
     def depth_layer(self):
         return self.layers[1]
 
+    def initial_rasters(self) -> None:
+        raster_values = self.depth_layer.get_raster('depth')
+        self.max_depth = np.amax(raster_values)
+        max_depth_pos = np.unravel_index(np.argmax(raster_values),raster_values.shape)
+        max_coord = self.cell_pos_to_coord(self.depth_layer,max_depth_pos[1:])
+        for k,v in self._buildings.items():
+            index = self.coord_to_cell_pos(self.depth_layer,self._buildings[k].centroid)
+            depth_at_point = raster_values[0][index]
+            if depth_at_point < 0:
+                depth_at_point = 0
+            self._buildings[k].inundation = depth_at_point
+            self._buildings[k].flood_preparedness = depth_at_point # varying flood protection standard
+
+
     def read_rasters(self) -> None:
         raster_values = self.depth_layer.get_raster('depth')
         self.max_depth = np.amax(raster_values)
@@ -104,6 +118,8 @@ class CoastalArea(GeoSpace):
         for k,v in self._buildings.items():
             index = self.coord_to_cell_pos(self.depth_layer,self._buildings[k].centroid)
             depth_at_point = raster_values[0][index]
+            if depth_at_point < 0:
+                depth_at_point = 0
             self._buildings[k].inundation = depth_at_point
 
     def remove_latest_layer(self) -> None:

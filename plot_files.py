@@ -6,7 +6,6 @@ from datetime import datetime
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-
 # plt.rcParams.update({
 #     # "text.usetex": True,
 #     "font.family": "serif",
@@ -39,25 +38,6 @@ flood_dmg_results_50_df = pd.read_csv(f"..\\coastal_csvs\\damage_results_50_2024
 # flood_exp_results_0_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_0_2024-05-06_01-23-42.csv")
 # flood_exp_results_25_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_25_2024-05-06_01-21-12.csv")
 # flood_exp_results_50_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_50_2024-05-06_01-20-26.csv")
-
-# cost_nothing_results_0_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-
-# cost_adapt_results_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-
-# cost_migrate_results_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-
-# saving_results_df = pd.read_csv(f"..\\coastal_csvs\\exp_results_{no_of_neighbours}_{timestamp}.csv", index=False)
-
-
-# plt.figure(1)
-# fig, axes = plt.subplots(figsize=(7, 5))
-
-# sns.lineplot(data=adaptation_results_df, ax=axes, x="Step", y="Flood Damage", hue="neighbourhood_radius", palette="dark:#5A9_r")
-# axes.set(
-#     xlabel="Year",
-#     ylabel="Average flood defence height (m)",
-#     title="Flood Adaptation change from 2010 to 2080",
-# )
 
 ylabels = ["Migration Count (moves)", "Max Flood Inundation (m)", "Average flood defence height (m)","Average damage (k£)"]
 titles = ["Migration Count from 2010 to 2080", "Max Flood Inundation Rise from 2010 to 2080", "Flood Adaptation Change from 2010 to 2080","Average flood depth damage per year from 2010 to 2080"]
