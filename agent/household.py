@@ -92,6 +92,8 @@ class Household(mesa.Agent):
 
         discounting_factor = max(n_floods_experienced,self.floods_experienced,1)/max(1,min(n_time_since_last_flood,self.timesteps_since_last_flood))
 
+        # discounting_factor = 1
+
         # Adapt - assuming very cautious households
         peer_adaptation_level = max(n_inundation_height, n_flood_prep) # looking at neighbours, considering the max
         personal_adaptation_level = max(flood_level,n_inundation_height)
@@ -269,7 +271,7 @@ class Household(mesa.Agent):
         current_point = Point(self.my_home.centroid)
 
         property_costs = {}
-        cost_per_m = 0.1 #k£ - variable cost that scales with distances
+        cost_per_m = self.model.variable_migration_cost #k£ - variable cost that scales with distances
         # fixed_migration_cost in k£ - psychological cost of leaving current property
 
         n_flood_prep = neighbourhood_attributes[0]
@@ -284,7 +286,7 @@ class Household(mesa.Agent):
             property_point = Point(property.centroid)         
             points_df = gpd.GeoDataFrame({'geometry': [current_point, property_point]},crs='EPSG:4326')
             points_df = points_df.to_crs("EPSG:27700")
-            dist = points_df.geometry.iloc[0].distance(points_df.geometry.iloc[1])
+            dist = points_df.geometry.iloc[0].distance(points_df.geometry.iloc[1]) # unit in metres between points
             # sum of property_value, variable distance-based cost and fixed cost
             property_costs[property_id] = self.model.space._buildings[property_id].property_value + dist*cost_per_m + self.model.fixed_migration_cost
 

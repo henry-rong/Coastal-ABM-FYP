@@ -1,7 +1,7 @@
 import mesa
 import mesa_geo as mg
 from shapely.geometry import Point, Polygon
-from .model import Population  # Assuming model.py is in the same directory
+from .model import CoastalModel  # Assuming model.py is in the same directory
 from .space import CoastalCell, CoastalArea  # Assuming space.py is in the same directory
 from agent.building import Building
 
@@ -36,17 +36,19 @@ def agent_portrayal(agent):
             }
 
 model_params = {
-    "people_per_household": 3.5,
-    "neighbourhood_radius": 50,
+    "data_label": "visual",
+    "neighbourhood_radius": 25,
     "initial_flood_experience": 0,
-    "initial_flood_preparedness": 0,
+    "initial_flood_preparedness": 4, # the return period protection standard at 2010, ranging with all 9 
     "house_sample_size": 3,
-    "fixed_migration_cost": 50, #k£
-    "household_adaptation_cost": 10 #k£
+    "savings_mean": 40,
+    "income_mean": 30,
+    "fixed_migration_cost": 5, #k£
+    "variable_migration_cost": 0.001 #k£ per m
 }
 
 geospace_element = mg.visualization.MapModule(agent_portrayal, map_width=700)
 num_agents_element = NumAgentsElement()
 chart1 = mesa.visualization.ChartModule([{"Label": "Max Flood Inundation", "Color": "Black"}], data_collector_name="datacollector")
 chart2 = mesa.visualization.ChartModule([{"Label": "Migration Count", "Color": "Red"}], data_collector_name="datacollector")
-server = mesa.visualization.ModularServer(Population, [geospace_element, num_agents_element, chart1, chart2], "Population Model", model_params)
+server = mesa.visualization.ModularServer(CoastalModel, [geospace_element, num_agents_element, chart1, chart2], "CoastalModel", model_params)

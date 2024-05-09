@@ -11,8 +11,8 @@ distance_band  = 0
 # are a format for storing geographic data that is backed
 # by sqlite. geopandas reads data relying on the fiona package,
 # providing a high-level pandas-style interface to geographic data.
-buildings_wgs84 = geopandas.read_file("data/fairbourne_buildings.geojson") # this guy is in WGS84
-
+ # this guy is in WGS84
+buildings_wgs84 = geopandas.read_file("data/fairbourne_buildings.geojson")
 # https://epsg.io/27700
 buildings = buildings_wgs84.to_crs("EPSG:27700") # reprojected EPSG is for the UK. unit is in metres
 

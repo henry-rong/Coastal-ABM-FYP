@@ -13,6 +13,10 @@ from agent.building import Building
 from .space import CoastalArea  # Assuming space.py is in the same directory
 import networkx as nx
 import copy
+from datetime import datetime
+
+current_directory = os.getcwd() # for debugging
+# os.chdir(current_directory)
 
 def fp(rp):
     return sorted(glob(os.path.join("data", "processed", rp, "*.gz")))
@@ -34,6 +38,7 @@ def call_migration_count(model):
 class CoastalModel(mesa.Model):
     def __init__(
         self,
+        data_label, # for documentation of results
         # parameters
         neighbourhood_radius,
         initial_flood_experience,
@@ -42,6 +47,7 @@ class CoastalModel(mesa.Model):
         savings_mean,
         income_mean,
         fixed_migration_cost,
+        variable_migration_cost,
         # geospatial data
         population_gzip_file="data/population.tif.gz",
         sea_zip_file="data/sea2.zip",
@@ -49,6 +55,7 @@ class CoastalModel(mesa.Model):
         building_file = "data/fairbourne_buildings.geojson"
     ):
         super().__init__()
+        self.data_label = data_label
         # Counters
         self.step_count = 0
         self.num_agents = 0
@@ -63,6 +70,7 @@ class CoastalModel(mesa.Model):
         self.savings_mean = savings_mean
         self.income_mean = income_mean
         self.fixed_migration_cost = fixed_migration_cost
+        self.variable_migration_cost = variable_migration_cost
         # Load space
         self.space = CoastalArea(crs="epsg:4326")
         self.space.load_data(population_gzip_file, sea_zip_file, world_zip_file)
@@ -81,6 +89,7 @@ class CoastalModel(mesa.Model):
               "Nothing Utility":"nothing_utility",
               "Adapt Utility":"adapt_utility",
               "Migrate Utility":"migrate_utility",
+              "Income":"income",
               "Savings":"savings"
               },)
 
@@ -143,7 +152,16 @@ class CoastalModel(mesa.Model):
         self.space.load_flood_depth(depth_fps[rp][year], "data/clip2.zip")
         self.space.read_rasters()
 
+    def save_network_state(self, step):
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        nx.write_graphml(self.dynamic_neighbours, f"data/export_networks/dynamic_neighbours_{step+2010}_{self.data_label}_{timestamp}.graphml")
+
     def step(self):
+
+        # if self.step_count == 0 or self.step_count == 69 or self.step_count == 68:
+        self.save_network_state(self.step_count)
+        print("the graph has " + str(self.dynamic_neighbours.number_of_edges()) + " edges and "+ str(self.dynamic_neighbours.number_of_nodes()) + " nodes!")
+
         self.datacollector.collect(self)
         self.schedule.step()
         self.step_count += 1
