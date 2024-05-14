@@ -63,6 +63,7 @@ class CoastalModel(mesa.Model):
         # NetworkX graphs
         self.neighbours_lookup = nx.convert_node_labels_to_integers(nx.read_graphml(network_fps[neighbourhood_radius]))
         self.dynamic_neighbours = copy.deepcopy(self.neighbours_lookup)
+        # nx.write_graphml(self.dynamic_neighbours, f"data/export_networks/dynamic_neighbours_check.graphml")
         # Perception factors
         self.initial_flood_experience = initial_flood_experience
         self.house_sample_size = house_sample_size
@@ -127,9 +128,10 @@ class CoastalModel(mesa.Model):
             household.set_home(random_home)
             self.schedule.add(household)
 
-        nodes_to_remove = self.space.building_ids.difference(occupied_houses)
+        nodes_to_remove = self.space.building_ids.difference(occupied_houses) # get node ids of unoccupied houses
         self.dynamic_neighbours.remove_nodes_from(list(nodes_to_remove))
         del self.space.homes
+        # nx.write_graphml(self.dynamic_neighbours, f"data/export_networks/dynamic_neighbours_initialised_check.graphml")
 
     def _load_building_from_file(self, buildings_file: str, crs: str):
         buildings_df = gpd.read_file(buildings_file)
